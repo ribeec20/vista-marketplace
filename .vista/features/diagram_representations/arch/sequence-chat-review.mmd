@@ -1,0 +1,53 @@
+sequenceDiagram
+    participant User as Developer
+    participant Browser as Browser Client
+    participant Server as FastAPI Server
+    participant CLI as CLI Provider (Claude/OpenCode)
+
+    User->>Browser: Click chat toggle button (bottom-right)
+    Note over Browser: Panel slides out, page reflows to 60/40 split
+
+    Browser->>Server: GET /api/providers
+    alt No providers configured
+        Server-->>Browser: Empty list
+        Note over Browser: Dropdown shows "No providers", send disabled
+    else Providers found
+        Server-->>Browser: List of enabled providers
+    end
+
+    User->>Browser: Select provider from dropdown
+    Browser->>Server: GET /api/providers/{name}/models
+    alt Model discovery fails
+        Server-->>Browser: Error
+        Note over Browser: Dropdown shows error
+    else Success
+        Server-->>Browser: Available models
+    end
+
+    User->>Browser: Select model
+    User->>Browser: Click a rendered diagram to attach
+    Note over Browser: Diagram name as removable chip, raw content stored
+
+    User->>Browser: Type review message and click send
+    Note over Browser: User message right-aligned, input cleared, loading shown
+
+    Browser->>Server: POST /api/projects/{id}/chat {provider, model, message, attachments}
+    alt Invalid provider/model
+        Server-->>Browser: 400 with error message
+    else Valid request
+        Server->>CLI: Invoke CLI with prompt (message + diagram context)
+        alt CLI not found or fails to start
+            CLI-->>Server: Error
+            Server-->>Browser: Error in response
+        else CLI running
+            loop Stream response tokens
+                CLI-->>Server: stdout tokens
+                Server-->>Browser: Response tokens
+                Note over Browser: AI response renders left-aligned
+            end
+            alt CLI crashes mid-stream
+                CLI-->>Server: Process error
+                Server-->>Browser: Error event, partial response preserved
+            end
+        end
+    end

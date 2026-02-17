@@ -1,0 +1,43 @@
+sequenceDiagram
+    participant Browser as Browser<br/>(Vista Frontend)
+    participant Vista as Vista FastAPI<br/>(Hub Server)
+    participant OC as OpenCode Server<br/>(opencode serve)
+    participant FS as File System<br/>(arch/ + specs/)
+
+    Note over Browser,OC: Session Creation
+    Browser->>Vista: POST /api/chat/sessions<br/>{provider: "opencode", model: "claude-3-5-sonnet", feature: "..."}
+    Vista->>Vista: Create ChatSession<br/>Save to disk
+    Vista->>OC: POST /session<br/>{title: "arch-chat-{feature}", permission: [...]}
+    OC-->>Vista: {id: "oc-session-id"}
+    Vista->>Vista: Map vista_session_id → oc_session_id
+    Vista-->>Browser: {session_id, status: "ready"}
+
+    Note over Browser,OC: Subscribe to Events
+    Vista->>OC: GET /event (SSE subscribe)
+    Note over Vista,OC: Persistent SSE connection<br/>for real-time events
+
+    Note over Browser,OC: Send Message with Context
+    Browser->>Vista: POST /api/chat/sessions/{id}/messages<br/>{message, attached_diagrams, selected_elements}
+    Vista->>Vista: ContextAssembler:<br/>system prompt + diagram contents<br/>+ selected nodes + history
+    Vista->>OC: POST /session/{oc_id}/message<br/>{parts: [{type: "text", text: assembled_prompt}],<br/>model: {providerID: "anthropic", modelID: "..."}}
+
+    Note over Browser,OC: Streaming Response
+    Browser->>Vista: GET /api/chat/sessions/{id}/stream (SSE)
+
+    OC-->>Vista: SSE: event: message.part.updated<br/>{properties: {text: "token..."}}
+    Vista->>Browser: SSE: event: token, data: {"text": "token..."}
+
+    OC-->>Vista: SSE: event: message.part.updated<br/>{properties: {text: "more tokens..."}}
+    Vista->>Browser: SSE: event: token, data: {"text": "more tokens..."}
+
+    Note over Browser,FS: AI Edits Diagram
+    OC->>FS: Write to arch/data-model.mmd
+    Note over Vista,FS: watchdog detects file change
+    FS-->>Vista: FileModifiedEvent
+    Vista->>Vista: ManifestUpdater:<br/>check if new/deleted file
+    Vista->>Browser: SSE: event: diagram_changed,<br/>data: {file, content}
+    Browser->>Browser: Re-render Mermaid diagram
+
+    OC-->>Vista: SSE: event: session.idle
+    Vista->>Vista: SessionService.add_message()<br/>Save assistant response
+    Vista->>Browser: SSE: event: message_done,<br/>data: {role: "assistant", content: "..."}

@@ -1,0 +1,31 @@
+flowchart TD
+    START([User starts Ralph job]) --> SANDBOX{sandbox=true?}
+
+    SANDBOX -->|No| NATIVE[Run native subprocess<br/>existing path unchanged]
+    NATIVE --> MONITOR[Monitor output.log<br/>parse activity]
+
+    SANDBOX -->|Yes| DOCKER_CHECK{Docker installed<br/>& running?}
+    DOCKER_CHECK -->|No| ERROR[Return error:<br/>'Docker not available']
+
+    DOCKER_CHECK -->|Yes| IMAGE_CHECK{Docker image<br/>exists locally?}
+    IMAGE_CHECK -->|No| BUILD[Auto-build image<br/>from claudebox base]
+    BUILD --> BUILD_OK{Build<br/>succeeded?}
+    BUILD_OK -->|No| BUILD_ERR[Return error<br/>with build logs]
+    BUILD_OK -->|Yes| CREATE
+
+    IMAGE_CHECK -->|Yes| CREATE[Create ephemeral container<br/>with volume mounts]
+    CREATE --> MOUNTS[Mount:<br/>- project root RW<br/>- credentials RO]
+    MOUNTS --> GEN_SCRIPT[Generate bash loop script<br/>for Linux container]
+    GEN_SCRIPT --> RUN[Start container<br/>execute loop.sh]
+    RUN --> MONITOR
+
+    MONITOR --> DASHBOARD[Dashboard shows activity<br/>with 'Sandboxed' badge]
+
+    DASHBOARD --> STOP{User stops job?}
+    STOP -->|Yes| DOCKER_STOP[docker stop container]
+    DOCKER_STOP --> REMOVE[Container auto-removed]
+    STOP -->|No| COMPLETE{Job completes?}
+    COMPLETE -->|Yes| REMOVE
+    COMPLETE -->|No| TTL{TTL expired?}
+    TTL -->|Yes| FORCE_STOP[Force stop + remove]
+    TTL -->|No| MONITOR

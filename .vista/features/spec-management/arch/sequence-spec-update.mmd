@@ -1,0 +1,42 @@
+sequenceDiagram
+    actor User
+    participant Agent as Chatting Agent
+    participant Skill as /vista:spec-update
+    participant SubAgent as Spec Update Sub-Agent
+    participant FS as File System
+    participant Git as Git
+
+    User->>Agent: "We need to add a retry limit"
+    Agent->>Skill: invoke spec-update(feature, topic)
+
+    Skill->>FS: Read domain-requirements.md
+    Skill->>FS: Read specs/{topic}.md
+    Skill->>FS: Parse existing requirement IDs
+
+    Skill->>User: What changed? (AskUserQuestion)
+    User->>Skill: "Add retry limit of 3 for failed jobs"
+
+    Skill->>User: Why? (AskUserQuestion)
+    User->>Skill: "Edge case found during implementation"
+
+    Skill->>SubAgent: Spawn with context + change details
+
+    SubAgent->>FS: Read current spec file
+    SubAgent->>SubAgent: Determine next ID (e.g., RMT-F12)
+    SubAgent->>FS: Add requirement with ID
+    SubAgent->>FS: Add changelog row
+    SubAgent->>FS: Update requirement index
+    SubAgent->>FS: Update acceptance criteria
+
+    SubAgent->>Git: git add specs/{topic}.md
+    SubAgent->>Git: git commit -m "spec(feature/topic): added RMT-F12"
+    Git-->>SubAgent: commit hash abc1234
+
+    SubAgent->>FS: Backfill commit hash in changelog
+    SubAgent->>Git: git add + amend (backfill only)
+
+    SubAgent->>FS: grep codebase for "RMT-" references
+
+    SubAgent-->>Skill: Return changes + affected code
+    Skill-->>Agent: Report results
+    Agent-->>User: "Added RMT-F12: Retry limit of 3. No existing code references."

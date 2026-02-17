@@ -1,0 +1,1967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vista: ralph-mcp-tool</title>
+  <style>
+    /* ===== Reset & Base ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 15px; scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+      line-height: 1.5;
+      padding-bottom: 80px;
+    }
+
+    /* ===== Header ===== */
+    header {
+      background: #0f172a;
+      color: #fff;
+      padding: 16px 24px;
+      font-size: 1.2rem;
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+
+    /* ===== Main Container ===== */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 16px;
+    }
+
+    /* ===== Empty State ===== */
+    .empty-page {
+      text-align: center;
+      padding: 80px 24px;
+      color: #64748b;
+      font-size: 1.1rem;
+    }
+    .empty-page h2 { color: #334155; margin-bottom: 12px; }
+
+    /* ===== Section Cards ===== */
+    .section-card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .section-header {
+      background: #1e293b;
+      color: #fff;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .section-header:hover { background: #273549; }
+    .section-title { font-weight: 600; font-size: 1rem; flex: 1; }
+    .section-badge {
+      font-size: 0.75rem;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .badge-pending { background: #94a3b8; color: #fff; }
+    .badge-approved { background: #16a34a; color: #fff; }
+    .badge-rejected { background: #dc2626; color: #fff; }
+    .badge-mixed { background: #f59e0b; color: #fff; }
+
+    .section-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .section-actions button {
+      font-size: 0.7rem;
+      padding: 3px 10px;
+      border-radius: 4px;
+      border: 1px solid;
+      cursor: pointer;
+      font-weight: 500;
+      background: transparent;
+      transition: background 0.15s, color 0.15s;
+    }
+    .btn-approve-all { border-color: #16a34a; color: #16a34a; }
+    .btn-approve-all:hover { background: #16a34a; color: #fff; }
+    .btn-reject-all { border-color: #dc2626; color: #f87171; opacity: 0.7; }
+    .btn-reject-all:hover { background: #dc2626; color: #fff; opacity: 1; }
+
+    .chevron {
+      width: 20px;
+      height: 20px;
+      transition: transform 0.2s;
+      fill: #fff;
+    }
+    .chevron.collapsed { transform: rotate(-90deg); }
+
+    .section-body {
+      padding: 20px;
+      overflow: hidden;
+      transition: max-height 0.3s ease, padding 0.3s ease;
+    }
+    .section-body.collapsed {
+      max-height: 0 !important;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
+    .empty-section {
+      text-align: center;
+      padding: 32px;
+      color: #94a3b8;
+      font-style: italic;
+    }
+
+    .render-error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 6px;
+      padding: 16px;
+      color: #991b1b;
+      font-size: 0.9rem;
+    }
+
+    /* ===== SVG Diagrams ===== */
+    .diagram-container {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin-bottom: 16px;
+    }
+    .diagram-container svg {
+      display: block;
+      min-width: 100%;
+    }
+
+    /* Arrow/path hover highlight */
+    .diagram-container path[marker-end],
+    .diagram-container line[marker-end] {
+      cursor: pointer;
+      transition: stroke-width 0.15s, filter 0.15s;
+    }
+    .diagram-container path[marker-end]:hover,
+    .diagram-container line[marker-end]:hover {
+      stroke-width: 3.5 !important;
+      filter: drop-shadow(0 0 4px rgba(0,0,0,0.25));
+    }
+
+    /* ===== Review Items ===== */
+    .review-item {
+      border-left: 3px solid #cbd5e1;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      background: #fafbfc;
+      border-radius: 0 6px 6px 0;
+      transition: border-color 0.2s;
+    }
+    .review-item.status-approved { border-left-color: #16a34a; }
+    .review-item.status-rejected { border-left-color: #dc2626; }
+    .review-item.status-pending  { border-left-color: #cbd5e1; }
+
+    .review-item-label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+      color: #334155;
+    }
+
+    /* ===== Review Controls ===== */
+    .review-control { margin-top: 10px; }
+    .status-toggle {
+      display: flex;
+      gap: 0;
+      border-radius: 6px;
+      overflow: hidden;
+      display: inline-flex;
+      border: 1px solid #e2e8f0;
+    }
+    .toggle {
+      padding: 4px 14px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      border: none;
+      background: #fff;
+      color: #64748b;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .toggle input[type="radio"] { display: none; }
+    .toggle.pending.active { background: #94a3b8; color: #fff; }
+    .toggle.approve.active { background: #16a34a; color: #fff; }
+    .toggle.reject.active  { background: #dc2626; color: #fff; }
+    .toggle:hover { background: #f1f5f9; }
+    .toggle.active:hover { filter: brightness(1.1); }
+
+    .notes {
+      display: none;
+      width: 100%;
+      margin-top: 8px;
+      padding: 8px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.85rem;
+      resize: vertical;
+      min-height: 60px;
+      transition: all 0.2s;
+    }
+    .notes.visible {
+      display: block;
+      animation: slideDown 0.2s ease;
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; max-height: 0; margin-top: 0; }
+      to   { opacity: 1; max-height: 200px; margin-top: 8px; }
+    }
+
+    /* ===== Sequence Sub-headers ===== */
+    .sequence-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin: 20px 0 6px 0;
+      color: #1e293b;
+    }
+    .sequence-title:first-child { margin-top: 0; }
+    .sequence-desc {
+      font-size: 0.82rem;
+      color: #64748b;
+      margin-bottom: 10px;
+    }
+
+    /* ===== Phase details ===== */
+    .phase-details {
+      font-size: 0.82rem;
+      color: #475569;
+      margin-top: 6px;
+    }
+    .phase-details ul {
+      margin: 4px 0 4px 18px;
+    }
+    .phase-details li { margin-bottom: 2px; }
+    .phase-dep-tag {
+      display: inline-block;
+      font-size: 0.7rem;
+      padding: 1px 6px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      margin-right: 4px;
+      color: #475569;
+    }
+
+    /* ===== Footer / Submit ===== */
+    .submit-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border-top: 1px solid #e2e8f0;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 100;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
+    }
+    .btn-submit {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      padding: 10px 28px;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-submit:hover { background: #1d4ed8; }
+    .btn-submit:active { background: #1e40af; }
+
+    .submit-message {
+      font-size: 0.82rem;
+      color: #64748b;
+      max-width: 500px;
+    }
+
+    /* ===== Toast ===== */
+    .toast {
+      position: fixed;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: #16a34a;
+      color: #fff;
+      padding: 10px 24px;
+      border-radius: 6px;
+      font-weight: 500;
+      font-size: 0.9rem;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      z-index: 200;
+      pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ===== Print ===== */
+    @media print {
+      .review-control, .submit-footer, .section-actions { display: none !important; }
+      header { position: static; }
+      .section-body.collapsed { max-height: none !important; padding: 20px !important; }
+      .chevron { display: none; }
+      body { background: #fff; padding-bottom: 0; }
+      .section-card { box-shadow: none; border: 1px solid #e2e8f0; }
+    }
+  </style>
+</head>
+<body>
+  <header>Vista Plan Review: ralph-mcp-tool</header>
+
+  <div class="container" id="app"></div>
+
+  <div class="submit-footer" id="submitFooter" style="display:none">
+    <button class="btn-submit" id="btnCopy">Copy Review to Clipboard</button>
+    <div class="submit-message" id="submitMsg"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    /* ============================================================
+       Vista Plan Visualizer
+       Self-contained HTML template - no external dependencies
+       ============================================================ */
+
+    const planData = {
+  "meta": {
+    "feature": "ralph-mcp-tool",
+    "version": 1,
+    "created": "2026-02-10T00:00:00Z",
+    "lastModified": "2026-02-10T00:00:00Z",
+    "status": "draft",
+    "description": "Expose ralph loop operations as MCP tools with unified settings, live provider/model discovery with cost/best-for metadata, async job management, AI summarizer, dashboard integration, and settings UI page"
+  },
+  "sections": {
+    "architecture": {
+      "ref": "./arch/_arch.json"
+    },
+    "implementationPhases": {
+      "phases": [
+        {
+          "id": "phase-1",
+          "name": "Settings Extension",
+          "description": "Extend vista/settings.json with the ralph configuration section and add settings loading/filtering logic to the config and provider services",
+          "order": 1,
+          "dependencies": [],
+          "tasks": [
+            {
+              "name": "Define ralph settings schema with model metadata",
+              "description": "Add the 'ralph' section to settings.json with defaults, summarizer config, per-provider model filtering (models_allowed/models_blocked), and per-model metadata (cost_tier, best_for_tags, best_for_notes). Cost tiers: free/cheap/moderate/expensive. Best-for tags from curated list plus freeform notes. All informational — LLM uses judgment, no hard rules enforced.",
+              "files": [
+                "vista/settings.json"
+              ]
+            },
+            {
+              "name": "Add settings loading functions",
+              "description": "Add get_ralph_settings(), get_ralph_defaults(), get_summarizer_config() to the config module. Handle missing/partial ralph section gracefully with sensible defaults.",
+              "files": [
+                "vista/server/config.py"
+              ]
+            },
+            {
+              "name": "Extend provider service with ralph context filtering and metadata",
+              "description": "Add get_ralph_providers() that: (1) calls provider.get_models() for LIVE discovery (same as ralph.py line 295), (2) applies models_allowed/models_blocked filtering from settings, (3) enriches each model with cost_tier, best_for_tags, best_for_notes metadata from settings. Both top-level and ralph.providers must be enabled. Models not in get_models() output are silently ignored even if in settings.",
+              "files": [
+                "vista/server/services/provider_service.py"
+              ]
+            },
+            {
+              "name": "Add get_summarizer_command to Provider base class",
+              "description": "Add method to Provider base class and implement in ClaudeProvider and OpenCodeProvider for spawning summarizer subprocess with specific model.",
+              "files": [
+                "vista/server/services/provider_service.py"
+              ]
+            },
+            {
+              "name": "Write settings tests",
+              "description": "Unit tests for filtering logic (allowlist, blocklist, both levels, missing section, empty arrays, invalid config), defaults resolution, and summarizer config loading.",
+              "files": [
+                "vista/tests/test_ralph_settings.py"
+              ]
+            }
+          ],
+          "acceptanceCriteria": [
+            "get_ralph_providers() calls provider.get_models() live (same as ralph.py) — never hardcoded",
+            "get_ralph_providers() returns only providers enabled at both levels",
+            "Per-model allowlist intersects with live models (only allowed models that actually exist)",
+            "Per-model blocklist subtracts from live models (excludes blocked models)",
+            "Allowlist takes precedence when both allowlist and blocklist present",
+            "Models not in get_models() output are silently ignored even if in settings",
+            "Each model enriched with cost_tier, best_for_tags, best_for_notes from metadata",
+            "Models without metadata get null cost_tier and empty arrays",
+            "Missing ralph section falls back to top-level providers with all models, no metadata",
+            "get_ralph_defaults() returns configured or default values",
+            "get_summarizer_config() returns configured provider and model",
+            "save_ralph_settings() writes back to settings.json preserving other sections",
+            "All settings tests pass"
+          ]
+        },
+        {
+          "id": "phase-2",
+          "name": "Job Management Service",
+          "description": "Create the RalphService that handles job lifecycle, directory structure, subprocess spawning, and state management",
+          "order": 2,
+          "dependencies": ["phase-1"],
+          "tasks": [
+            {
+              "name": "Create RalphService class",
+              "description": "New service with create_job(), get_job(), get_job_status(), stop_job(), list_jobs(), find_job_by_slug() methods. Job state persisted to job.json files in .vista/ralph/{slug}/ directories.",
+              "files": [
+                "vista/server/services/ralph_service.py"
+              ]
+            },
+            {
+              "name": "Implement job directory creation",
+              "description": "create_job() creates .vista/ralph/{slug}/ with job.json, task.md (from task_description), and generates PROMPT_{mode}.md from existing portable templates. Handles duplicate slug detection (error if active job, rename old job.json if completed).",
+              "files": [
+                "vista/server/services/ralph_service.py"
+              ]
+            },
+            {
+              "name": "Implement subprocess spawning (reuse ralph.py exactly)",
+              "description": "Import LOOP_SCRIPT_TEMPLATE and get_prompt_content from portable/ralph.py. Generate loop script via LOOP_SCRIPT_TEMPLATE.format() with provider.get_invocation('ps1') — identical to ralph.py lines 208-218. Run via subprocess.Popen(['powershell', '-ExecutionPolicy', 'Bypass', '-File', ...]) with stdin=DEVNULL, stdout to output.log. Same cwd, same flags, same template — only difference is Popen (non-blocking) instead of run (blocking).",
+              "files": [
+                "vista/server/services/ralph_service.py"
+              ]
+            },
+            {
+              "name": "Implement PID-based status checking",
+              "description": "get_job_status() reads job.json, checks if PID is alive (platform-specific: os.kill(pid,0) on Unix, ctypes/psutil on Windows), reads tail of progress.txt, parses current iteration. Updates job.json status to 'failed' or 'completed' if PID is dead.",
+              "files": [
+                "vista/server/services/ralph_service.py"
+              ]
+            },
+            {
+              "name": "Implement job stop",
+              "description": "stop_job() sends termination signal to subprocess (SIGTERM on Unix, TerminateProcess on Windows), waits briefly, updates job.json status to 'stopped'.",
+              "files": [
+                "vista/server/services/ralph_service.py"
+              ]
+            },
+            {
+              "name": "Implement prompt template generation",
+              "description": "Read existing templates from vista/portable/templates/PROMPT_plan.md and PROMPT_build.md. Adapt for ad-hoc context: replace specs/ references with task.md, inject correct paths for .vista/ralph/{slug}/ working directory.",
+              "files": [
+                "vista/server/services/ralph_service.py"
+              ]
+            },
+            {
+              "name": "Write job management tests",
+              "description": "Unit tests for job creation, status checking, PID verification (mocked), duplicate slug handling, stop behavior, prompt generation. Integration test for create->status->stop lifecycle.",
+              "files": [
+                "vista/tests/test_ralph_service.py"
+              ]
+            }
+          ],
+          "acceptanceCriteria": [
+            "create_job() creates correct directory structure with all required files",
+            "create_job() spawns subprocess and returns within 5 seconds",
+            "get_job_status() returns accurate status based on PID check",
+            "get_job_status() reads last N lines from progress.txt",
+            "get_job_status() returns within 1 second",
+            "stop_job() terminates subprocess and updates status",
+            "Duplicate slug with active job returns error",
+            "Duplicate slug with completed job creates new job, preserves old",
+            "Job state persists across service restarts (read from disk)",
+            "Prompt templates are correctly adapted for ad-hoc context",
+            "All job management tests pass"
+          ]
+        },
+        {
+          "id": "phase-3",
+          "name": "Summarizer Agent",
+          "description": "Implement the summarizer that reads job artifacts and produces AI-generated summaries via a configurable CLI subprocess",
+          "order": 3,
+          "dependencies": ["phase-1", "phase-2"],
+          "tasks": [
+            {
+              "name": "Implement summarizer prompt builder",
+              "description": "Build the summarizer prompt from job artifacts: task.md, progress.txt (last 100 lines), IMPLEMENTATION_PLAN.md (first 500 lines), git log --oneline. Handle missing/empty files gracefully.",
+              "files": [
+                "vista/server/services/summarizer_service.py"
+              ]
+            },
+            {
+              "name": "Implement summarizer subprocess invocation",
+              "description": "Spawn CLI subprocess using configured provider/model. Pipe prompt via stdin, capture stdout. 55-second timeout (buffer for MCP 60s limit). Kill subprocess on timeout.",
+              "files": [
+                "vista/server/services/summarizer_service.py"
+              ]
+            },
+            {
+              "name": "Implement output parsing",
+              "description": "Parse JSON from summarizer output. Handle edge cases: non-JSON output (return raw text fallback), partial JSON, empty output. Extract status_summary, completed_work, in_progress, issues, recommendations, key_files_changed.",
+              "files": [
+                "vista/server/services/summarizer_service.py"
+              ]
+            },
+            {
+              "name": "Write summarizer tests",
+              "description": "Unit tests for prompt building (various artifact states), output parsing (valid JSON, malformed, empty), truncation logic. Integration test with mocked CLI subprocess.",
+              "files": [
+                "vista/tests/test_summarizer_service.py"
+              ]
+            }
+          ],
+          "acceptanceCriteria": [
+            "Summarizer prompt includes all available artifacts with correct truncation",
+            "Summarizer uses configured provider and model from settings",
+            "Summarizer subprocess times out at 55 seconds and is killed",
+            "Valid JSON output is parsed into structured summary",
+            "Malformed output falls back to raw text response",
+            "Missing artifacts are handled gracefully (not crash)",
+            "All summarizer tests pass"
+          ]
+        },
+        {
+          "id": "phase-4",
+          "name": "MCP Tool Registration",
+          "description": "Register the 5 ralph MCP tools in vista/mcp_server.py and wire them to the services",
+          "order": 4,
+          "dependencies": ["phase-1", "phase-2", "phase-3"],
+          "tasks": [
+            {
+              "name": "Register ralph_providers tool",
+              "description": "Add @mcp.tool() decorated function in mcp_server.py. Calls get_ralph_providers() which discovers models LIVE via provider.get_models(), filters, and enriches with cost_tier/best_for metadata. Returns JSON with providers (including per-model metadata), defaults, summarizer config. LLM uses metadata to autonomously pick the best model for the task.",
+              "files": [
+                "vista/mcp_server.py"
+              ]
+            },
+            {
+              "name": "Register ralph_start tool",
+              "description": "Add @mcp.tool() decorated function. Validates parameters, resolves defaults from settings, calls RalphService.create_job(). Returns job_id and status JSON.",
+              "files": [
+                "vista/mcp_server.py"
+              ]
+            },
+            {
+              "name": "Register ralph_status tool",
+              "description": "Add @mcp.tool() decorated function. Calls RalphService.get_job_status(). Returns lightweight status JSON.",
+              "files": [
+                "vista/mcp_server.py"
+              ]
+            },
+            {
+              "name": "Register ralph_summary tool",
+              "description": "Add @mcp.tool() decorated function. Calls SummarizerService.summarize(). Returns structured summary JSON.",
+              "files": [
+                "vista/mcp_server.py"
+              ]
+            },
+            {
+              "name": "Register ralph_stop tool",
+              "description": "Add @mcp.tool() decorated function. Calls RalphService.stop_job(). Returns confirmation JSON.",
+              "files": [
+                "vista/mcp_server.py"
+              ]
+            },
+            {
+              "name": "Initialize services in MCP lifespan",
+              "description": "Instantiate RalphService and SummarizerService in the _vista_lifespan context manager. Pass project root path. Make services available to tool functions.",
+              "files": [
+                "vista/mcp_server.py"
+              ]
+            },
+            {
+              "name": "Write MCP tool integration tests",
+              "description": "End-to-end tests for each tool: ralph_providers returns filtered data, ralph_start creates job, ralph_status returns progress, ralph_summary returns summary, ralph_stop terminates job. Full lifecycle test: providers -> start -> poll -> summary -> stop.",
+              "files": [
+                "vista/tests/test_ralph_mcp_tools.py"
+              ]
+            }
+          ],
+          "acceptanceCriteria": [
+            "All 5 tools are discoverable by MCP clients",
+            "Tool descriptions are clear and informative (from docstrings)",
+            "Tool parameter types are correct in JSON schema",
+            "ralph_providers returns filtered provider/model data",
+            "ralph_start creates job and returns within 5 seconds",
+            "ralph_status returns within 1 second",
+            "ralph_summary returns structured summary within 60 seconds",
+            "ralph_stop terminates running job",
+            "Error cases return clear JSON error messages (not exceptions)",
+            "Full lifecycle test passes: providers -> start(plan) -> poll -> summary -> start(build) -> poll -> summary"
+          ]
+        },
+        {
+          "id": "phase-5",
+          "name": "Dashboard Integration",
+          "description": "Add ralph job monitoring to the Vista web dashboard with API endpoints and UI views",
+          "order": 5,
+          "dependencies": ["phase-2"],
+          "tasks": [
+            {
+              "name": "Create ralph API routes",
+              "description": "Add REST API endpoints: GET /api/ralph/jobs, GET /api/ralph/jobs/{job_id}, GET /api/ralph/jobs/{job_id}/progress, GET /api/ralph/jobs/{job_id}/output, GET /api/ralph/jobs/{job_id}/artifacts, GET /api/ralph/jobs/{job_id}/artifacts/{filename}, POST /api/ralph/jobs/{job_id}/stop. Wire to RalphService.",
+              "files": [
+                "vista/server/routes/ralph.py"
+              ]
+            },
+            {
+              "name": "Register ralph routes in FastAPI app",
+              "description": "Include the ralph router in the FastAPI app. Follow existing patterns from loops.py route registration.",
+              "files": [
+                "vista/server/app.py"
+              ]
+            },
+            {
+              "name": "Create ralph jobs list view",
+              "description": "HTML template for ralph job list table with slug, mode, provider, model, status indicators, and timestamps. Auto-refresh for running jobs. Link to job detail view.",
+              "files": [
+                "vista/server/views/ralph_jobs.html"
+              ]
+            },
+            {
+              "name": "Create ralph job detail view",
+              "description": "HTML template for job detail page: metadata header, progress section with auto-scroll, artifact file listing with click-to-view, stop button for running jobs.",
+              "files": [
+                "vista/server/views/ralph_job_detail.html"
+              ]
+            },
+            {
+              "name": "Add ralph section to dashboard navigation",
+              "description": "Add ralph jobs link to the dashboard navigation/sidebar. Update project page to show ralph job count.",
+              "files": [
+                "vista/server/views/_base.html",
+                "vista/server/views/project.html"
+              ]
+            },
+            {
+              "name": "Add ralph-specific CSS and JavaScript",
+              "description": "Status indicator colors (blue=running, green=completed, red=failed, gray=stopped). Progress auto-refresh polling. Artifact file viewer modal or inline display.",
+              "files": [
+                "vista/server/views/static/style.css",
+                "vista/server/views/static/app.js"
+              ]
+            },
+            {
+              "name": "Write dashboard API tests",
+              "description": "Test all ralph API endpoints: list, detail, progress, output, artifacts, stop. Test 404 for nonexistent jobs. Test empty job list.",
+              "files": [
+                "vista/tests/test_ralph_api.py"
+              ]
+            }
+          ],
+          "acceptanceCriteria": [
+            "GET /api/ralph/jobs returns all jobs with correct metadata",
+            "GET /api/ralph/jobs/{job_id} returns full job detail",
+            "GET /api/ralph/jobs/{job_id}/progress returns progress.txt content",
+            "GET /api/ralph/jobs/{job_id}/artifacts lists all files",
+            "POST /api/ralph/jobs/{job_id}/stop terminates running job",
+            "404 returned for nonexistent job IDs",
+            "Job list view renders in browser with correct status indicators",
+            "Job detail view shows progress and artifacts",
+            "Auto-refresh updates status for running jobs",
+            "Dashboard navigation includes ralph jobs link",
+            "All dashboard API tests pass"
+          ]
+        },
+        {
+          "id": "phase-6",
+          "name": "Settings UI Page",
+          "description": "Dashboard page for managing ralph settings through a friendly UI with live model discovery, provider/model toggles, cost tier dropdowns, and best-for tag selection",
+          "order": 6,
+          "dependencies": ["phase-1", "phase-5"],
+          "tasks": [
+            {
+              "name": "Create settings API endpoints",
+              "description": "Add GET /api/settings/ralph (returns saved settings merged with live model lists from provider.get_models()), PUT /api/settings/ralph (saves ralph config back to settings.json preserving other sections), GET /api/settings/ralph/models (refresh-only live model discovery). The GET endpoint must include live_models from provider.get_models() alongside saved models_allowed/models_blocked/model_metadata.",
+              "files": [
+                "vista/server/routes/settings.py"
+              ]
+            },
+            {
+              "name": "Register settings routes in FastAPI app",
+              "description": "Include the settings router in the FastAPI app.",
+              "files": [
+                "vista/server/app.py"
+              ]
+            },
+            {
+              "name": "Create settings page HTML template",
+              "description": "Page at /settings/ralph with sections: Defaults (cascading provider/model dropdowns, iterations input), Summarizer (provider/model dropdowns), Providers & Models (per-provider enable toggle, per-model table with Allowed checkbox, Cost Tier dropdown [free/cheap/moderate/expensive], Best For Tags multi-select from predefined list, Best For Notes freeform text input). Save button writes to settings.json. Model table rows populated from live API data, never hardcoded.",
+              "files": [
+                "vista/server/views/ralph_settings.html"
+              ]
+            },
+            {
+              "name": "Implement settings page JavaScript",
+              "description": "Cascading dropdowns (changing default provider updates default model dropdown with live models). Multi-select for best_for_tags from predefined list. Dirty form detection (unsaved changes indicator). Save via PUT /api/settings/ralph with success/error toast. Refresh Models button calls GET /api/settings/ralph/models to re-discover without page reload. Loading state while fetching live models.",
+              "files": [
+                "vista/server/views/static/app.js"
+              ]
+            },
+            {
+              "name": "Add settings page CSS",
+              "description": "Styles for the settings form: model tables, multi-select tag chips, cost tier dropdown colors, provider sections, save button states, unsaved changes indicator, warning badges for CLI-not-found and stale metadata.",
+              "files": [
+                "vista/server/views/static/style.css"
+              ]
+            },
+            {
+              "name": "Add settings link to dashboard navigation",
+              "description": "Add Ralph Settings link to the dashboard sidebar/navigation alongside the Ralph Jobs link.",
+              "files": [
+                "vista/server/views/_base.html"
+              ]
+            },
+            {
+              "name": "Write settings API tests",
+              "description": "Tests for GET (returns merged live + saved data), PUT (saves correctly, preserves other sections), PUT validation (rejects invalid cost_tier, invalid provider references). Edge cases: missing CLI, stale metadata, empty settings, concurrent save.",
+              "files": [
+                "vista/tests/test_ralph_settings_api.py"
+              ]
+            }
+          ],
+          "acceptanceCriteria": [
+            "GET /api/settings/ralph returns live_models from provider.get_models() for each provider",
+            "GET /api/settings/ralph returns saved models_allowed, models_blocked, model_metadata overlaid",
+            "GET /api/settings/ralph returns available_tags list of predefined best-for tags",
+            "PUT /api/settings/ralph saves config and preserves non-ralph sections in settings.json",
+            "Settings page model tables populated from live API data, never hardcoded",
+            "Provider enable/disable toggles work and reflect in ralph_providers MCP tool",
+            "Per-model Allowed checkboxes control models_allowed list",
+            "Cost tier dropdown saves correctly per model (free/cheap/moderate/expensive)",
+            "Best-for tags multi-select saves from predefined list per model",
+            "Best-for notes freeform text saves per model",
+            "Cascading dropdowns update model list when provider changes",
+            "Refresh Models button re-discovers without page reload",
+            "Unsaved changes indicator shows when form is dirty",
+            "Warning shown when provider CLI is not installed (empty model list)",
+            "Warning shown for stale metadata (model in settings but not in live_models)",
+            "All settings API tests pass"
+          ]
+        }
+      ]
+    }
+  }
+}
+;
+    const featureName = 'ralph-mcp-tool';
+    const featureDir = 'C:\Users\Grove\OneDrive\Documents\PYTHON\claude_plugins\vista\.vista\features\ralph-mcp-tool';
+
+    // ===== State =====
+    const reviewState = {};
+    // reviewState[sectionKey][itemId] = { status: 'pending'|'approved'|'rejected', notes: '' }
+
+    const SECTION_DEFS = [
+      { key: 'uiFlows',              title: 'UI Flows',                icon: 'flow' },
+      { key: 'dataModels',           title: 'Data Models',             icon: 'model' },
+      { key: 'dataFlow',             title: 'Data Flow',               icon: 'sequence' },
+      { key: 'services',             title: 'Services',                icon: 'service' },
+      { key: 'implementationPhases', title: 'Implementation Phases',   icon: 'phase' }
+    ];
+
+    // ===== Bootstrap =====
+    (function init() {
+      var app = document.getElementById('app');
+      if (!planData || !planData.sections) {
+        app.innerHTML = '<div class="empty-page"><h2>No plan data found</h2><p>Run /vista:plan first to generate a feature plan.</p></div>';
+        return;
+      }
+
+      SECTION_DEFS.forEach(function(def) {
+        reviewState[def.key] = {};
+        var section = buildSection(def);
+        app.appendChild(section);
+      });
+
+      document.getElementById('submitFooter').style.display = 'flex';
+      document.getElementById('btnCopy').addEventListener('click', handleCopyReview);
+    })();
+
+    // ===== Section Builder =====
+    function buildSection(def) {
+      var card = el('div', 'section-card');
+      card.id = 'section-' + def.key;
+
+      // Header
+      var hdr = el('div', 'section-header');
+      hdr.setAttribute('data-section', def.key);
+
+      var title = el('span', 'section-title');
+      title.textContent = def.title;
+
+      var badge = el('span', 'section-badge badge-pending');
+      badge.id = 'badge-' + def.key;
+      badge.textContent = '0/0 approved';
+
+      var actions = el('div', 'section-actions');
+      var btnApprove = el('button', 'btn-approve-all');
+      btnApprove.textContent = 'Approve All';
+      btnApprove.addEventListener('click', function(e) { e.stopPropagation(); setAllStatus(def.key, 'approved'); });
+      var btnReject = el('button', 'btn-reject-all');
+      btnReject.textContent = 'Reject All';
+      btnReject.addEventListener('click', function(e) { e.stopPropagation(); setAllStatus(def.key, 'rejected'); });
+      actions.appendChild(btnApprove);
+      actions.appendChild(btnReject);
+
+      var chev = createChevron();
+      chev.id = 'chevron-' + def.key;
+
+      hdr.appendChild(title);
+      hdr.appendChild(badge);
+      hdr.appendChild(actions);
+      hdr.appendChild(chev);
+
+      hdr.addEventListener('click', function() { toggleCollapse(def.key); });
+
+      // Body
+      var body = el('div', 'section-body');
+      body.id = 'body-' + def.key;
+
+      try {
+        renderSection(def, body);
+      } catch(err) {
+        body.innerHTML = '<div class="render-error">Error rendering ' + def.title + ': ' + escHtml(err.message) + '</div>';
+      }
+
+      card.appendChild(hdr);
+      card.appendChild(body);
+
+      updateBadge(def.key);
+      return card;
+    }
+
+    function renderSection(def, body) {
+      var data = planData.sections[def.key];
+      if (!data) {
+        body.innerHTML = '<div class="empty-section">No ' + def.title.toLowerCase() + ' defined in plan</div>';
+        return;
+      }
+
+      switch (def.key) {
+        case 'uiFlows':              renderUIFlows(data, body); break;
+        case 'dataModels':           renderDataModels(data, body); break;
+        case 'dataFlow':             renderDataFlow(data, body); break;
+        case 'services':             renderServices(data, body); break;
+        case 'implementationPhases': renderPhases(data, body); break;
+      }
+    }
+
+    // ===============================
+    // 1. UI Flows - Flow Chart
+    // ===============================
+    function renderUIFlows(data, container) {
+      var screens = data.screens || [];
+      var transitions = data.transitions || [];
+      if (screens.length === 0) {
+        container.innerHTML = '<div class="empty-section">No screens defined in plan</div>';
+        return;
+      }
+
+      // Layout: 3 per row
+      var cols = 3;
+      var boxW = 220, boxH = 130, gapX = 100, gapY = 100;
+      var padX = 40, padY = 40;
+
+      // Sort: entry points first
+      var sorted = screens.slice().sort(function(a, b) {
+        if (a.entryPoint && !b.entryPoint) return -1;
+        if (!a.entryPoint && b.entryPoint) return 1;
+        return 0;
+      });
+
+      var positions = {};
+      sorted.forEach(function(s, i) {
+        var col = i % cols;
+        var row = Math.floor(i / cols);
+        positions[s.id] = {
+          x: padX + col * (boxW + gapX),
+          y: padY + row * (boxH + gapY),
+          cx: padX + col * (boxW + gapX) + boxW / 2,
+          cy: padY + row * (boxH + gapY) + boxH / 2
+        };
+      });
+
+      var rows = Math.ceil(sorted.length / cols);
+      var svgW = padX * 2 + cols * boxW + (cols - 1) * gapX;
+      var svgH = padY * 2 + rows * boxH + (rows - 1) * gapY + 40;
+
+      var svg = createSvg(svgW, svgH);
+
+      // Defs for arrowheads
+      svg.innerHTML = '<defs><marker id="arrowFlow" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/></marker></defs>';
+
+      // Pre-compute edge slot assignments so arrows don't overlap
+      var edgeSlots = {}; // "boxId-side" -> [transitionIndex, ...]
+      var transEdges = []; // per-transition: { fromSide, toSide, fromKey, toKey } or null
+      transitions.forEach(function(t, ti) {
+        var from = positions[t.from];
+        var to = positions[t.to];
+        if (!from || !to) { transEdges.push(null); return; }
+
+        var dx = to.cx - from.cx;
+        var dy = to.cy - from.cy;
+        var fromSide, toSide;
+        if (Math.abs(dx) > Math.abs(dy)) {
+          fromSide = dx > 0 ? 'right' : 'left';
+          toSide = dx > 0 ? 'left' : 'right';
+        } else {
+          fromSide = dy > 0 ? 'bottom' : 'top';
+          toSide = dy > 0 ? 'top' : 'bottom';
+        }
+
+        var fromKey = t.from + '-' + fromSide;
+        var toKey = t.to + '-' + toSide;
+        if (!edgeSlots[fromKey]) edgeSlots[fromKey] = [];
+        if (!edgeSlots[toKey]) edgeSlots[toKey] = [];
+        edgeSlots[fromKey].push(ti);
+        edgeSlots[toKey].push(ti);
+        transEdges.push({ fromSide: fromSide, toSide: toSide, fromKey: fromKey, toKey: toKey });
+      });
+
+      // Draw transitions with offset routing (behind boxes)
+      transitions.forEach(function(t, ti) {
+        var edge = transEdges[ti];
+        if (!edge) return;
+        var from = positions[t.from];
+        var to = positions[t.to];
+
+        var fromSlots = edgeSlots[edge.fromKey];
+        var toSlots = edgeSlots[edge.toKey];
+        var fromIdx = fromSlots.indexOf(ti);
+        var toIdx = toSlots.indexOf(ti);
+
+        // Compute connection point offset along box edge
+        function edgePoint(pos, side, idx, total) {
+          var spread = total > 1 ? (idx - (total - 1) / 2) * 20 : 0;
+          switch (side) {
+            case 'right':  return { x: pos.x + boxW, y: pos.cy + spread };
+            case 'left':   return { x: pos.x, y: pos.cy + spread };
+            case 'bottom': return { x: pos.cx + spread, y: pos.y + boxH };
+            case 'top':    return { x: pos.cx + spread, y: pos.y };
+          }
+        }
+
+        var p1 = edgePoint(from, edge.fromSide, fromIdx, fromSlots.length);
+        var p2 = edgePoint(to, edge.toSide, toIdx, toSlots.length);
+
+        // Curved path between offset endpoints
+        var midX = (p1.x + p2.x) / 2;
+        var d = 'M' + p1.x + ',' + p1.y + ' C' + midX + ',' + p1.y + ' ' + midX + ',' + p2.y + ' ' + p2.x + ',' + p2.y;
+
+        var line = svgEl('path');
+        line.setAttribute('d', d);
+        line.setAttribute('fill', 'none');
+        line.setAttribute('stroke', '#64748b');
+        line.setAttribute('stroke-width', '1.5');
+        line.setAttribute('marker-end', 'url(#arrowFlow)');
+        svg.appendChild(line);
+
+        // Label with white background for readability
+        var mx = (p1.x + p2.x) / 2;
+        var my = (p1.y + p2.y) / 2 - 8;
+        var labelG = svgEl('g');
+
+        var triggerStr = t.trigger || '';
+        var bgW = triggerStr.length * 7 + 16;
+        var bgH = t.condition ? 32 : 18;
+        var bg = svgEl('rect');
+        setAttrs(bg, { x: mx - bgW / 2, y: my - 12, width: bgW, height: bgH, rx: 3, fill: '#fff', 'fill-opacity': 0.9 });
+        labelG.appendChild(bg);
+
+        var triggerText = svgTextEl(mx, my, triggerStr, '0.72rem', '#334155', 'bold');
+        labelG.appendChild(triggerText);
+
+        if (t.condition) {
+          var condText = svgTextEl(mx, my + 14, t.condition, '0.65rem', '#94a3b8', 'normal', 'italic');
+          labelG.appendChild(condText);
+        }
+        svg.appendChild(labelG);
+      });
+
+      // Draw screen boxes
+      sorted.forEach(function(s) {
+        var p = positions[s.id];
+        var g = svgEl('g');
+
+        // Box
+        var rect = svgEl('rect');
+        setAttrs(rect, { x: p.x, y: p.y, width: boxW, height: boxH, rx: 8, fill: '#fff', stroke: s.entryPoint ? '#2563eb' : '#cbd5e1', 'stroke-width': s.entryPoint ? 2.5 : 1.5 });
+        g.appendChild(rect);
+
+        if (s.entryPoint) {
+          var rect2 = svgEl('rect');
+          setAttrs(rect2, { x: p.x + 4, y: p.y + 4, width: boxW - 8, height: boxH - 8, rx: 5, fill: 'none', stroke: '#2563eb', 'stroke-width': 1, 'stroke-dasharray': '4,2' });
+          g.appendChild(rect2);
+        }
+
+        // Name
+        var nameText = svgTextEl(p.x + boxW / 2, p.y + 24, s.name || s.id, '0.82rem', '#1e293b', '600');
+        g.appendChild(nameText);
+
+        // Description (truncated)
+        var desc = (s.description || '').substring(0, 60);
+        if ((s.description || '').length > 60) desc += '...';
+        var descLines = wrapText(desc, 26);
+        descLines.forEach(function(line, idx) {
+          var dt = svgTextEl(p.x + boxW / 2, p.y + 44 + idx * 14, line, '0.68rem', '#64748b');
+          g.appendChild(dt);
+        });
+
+        // Component badges
+        var comps = s.components || [];
+        var badgeY = p.y + boxH - 22;
+        var totalBadgeW = comps.reduce(function(acc, c) { return acc + c.length * 6.5 + 14; }, 0) + (comps.length - 1) * 4;
+        var startX = p.x + (boxW - Math.min(totalBadgeW, boxW - 16)) / 2;
+        comps.slice(0, 3).forEach(function(comp, ci) {
+          var bw = comp.length * 6 + 12;
+          var br = svgEl('rect');
+          setAttrs(br, { x: startX, y: badgeY, width: bw, height: 16, rx: 3, fill: '#eff6ff', stroke: '#bfdbfe', 'stroke-width': 0.5 });
+          g.appendChild(br);
+          var bt = svgTextEl(startX + bw / 2, badgeY + 11.5, comp, '0.55rem', '#2563eb');
+          g.appendChild(bt);
+          startX += bw + 4;
+        });
+
+        svg.appendChild(g);
+      });
+
+      var diagWrap = el('div', 'diagram-container');
+      diagWrap.appendChild(svg);
+      container.appendChild(diagWrap);
+
+      // Review items per screen
+      sorted.forEach(function(s) {
+        var itemId = s.id;
+        reviewState.uiFlows[itemId] = { status: 'pending', notes: '' };
+        var item = buildReviewItem('uiFlows', itemId, s.name || s.id);
+        container.appendChild(item);
+      });
+    }
+
+    // ===============================
+    // 2. Data Models - ER Diagram
+    // ===============================
+    function renderDataModels(data, container) {
+      var entities = data.entities || [];
+      var relationships = data.relationships || [];
+      if (entities.length === 0) {
+        container.innerHTML = '<div class="empty-section">No entities defined in plan</div>';
+        return;
+      }
+
+      var cols = Math.min(entities.length, 3);
+      var entW = 260, gapX = 120, gapY = 60;
+      var padX = 40, padY = 30;
+      var rowH = 28;
+
+      // Calculate entity heights
+      var entHeights = {};
+      entities.forEach(function(e) {
+        entHeights[e.id] = 36 + (e.fields || []).length * rowH + 10;
+      });
+
+      // Position entities
+      var positions = {};
+      entities.forEach(function(e, i) {
+        var col = i % cols;
+        var row = Math.floor(i / cols);
+        // Compute Y based on tallest in prior rows
+        var yOff = padY;
+        for (var r = 0; r < row; r++) {
+          var maxH = 0;
+          for (var c = 0; c < cols; c++) {
+            var idx = r * cols + c;
+            if (idx < entities.length) {
+              maxH = Math.max(maxH, entHeights[entities[idx].id]);
+            }
+          }
+          yOff += maxH + gapY;
+        }
+        positions[e.id] = {
+          x: padX + col * (entW + gapX),
+          y: yOff,
+          w: entW,
+          h: entHeights[e.id],
+          cx: padX + col * (entW + gapX) + entW / 2,
+          cy: yOff + entHeights[e.id] / 2
+        };
+      });
+
+      // SVG size
+      var maxX = 0, maxY = 0;
+      Object.keys(positions).forEach(function(id) {
+        var p = positions[id];
+        maxX = Math.max(maxX, p.x + p.w);
+        maxY = Math.max(maxY, p.y + p.h);
+      });
+      var svgW = maxX + padX;
+      var svgH = maxY + padY;
+
+      var svg = createSvg(svgW, svgH);
+      svg.innerHTML = '<defs><marker id="arrowER" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#94a3b8"/></marker></defs>';
+
+      // Draw relationships
+      relationships.forEach(function(rel) {
+        var from = positions[rel.from];
+        var to = positions[rel.to];
+        if (!from || !to) return;
+
+        var x1, y1, x2, y2;
+        // Connect from right edge of from to left edge of to (or adjust)
+        if (from.x < to.x) {
+          x1 = from.x + from.w; y1 = from.cy;
+          x2 = to.x; y2 = to.cy;
+        } else if (from.x > to.x) {
+          x1 = from.x; y1 = from.cy;
+          x2 = to.x + to.w; y2 = to.cy;
+        } else {
+          x1 = from.cx; y1 = from.y + from.h;
+          x2 = to.cx; y2 = to.y;
+        }
+
+        var midX = (x1 + x2) / 2;
+        var d = 'M' + x1 + ',' + y1 + ' C' + midX + ',' + y1 + ' ' + midX + ',' + y2 + ' ' + x2 + ',' + y2;
+        var path = svgEl('path');
+        setAttrs(path, { d: d, fill: 'none', stroke: '#94a3b8', 'stroke-width': 1.5, 'marker-end': 'url(#arrowER)' });
+        svg.appendChild(path);
+
+        // Cardinality labels
+        var parts = (rel.type || '1:1').split(':');
+        var c1 = svgTextEl(x1 + (x1 < x2 ? 8 : -8), y1 - 8, parts[0], '0.7rem', '#64748b', 'bold');
+        var c2 = svgTextEl(x2 + (x2 > x1 ? -8 : 8), y2 - 8, parts[1] || parts[0], '0.7rem', '#64748b', 'bold');
+        svg.appendChild(c1);
+        svg.appendChild(c2);
+
+        // Relationship label
+        var labelX = (x1 + x2) / 2;
+        var labelY = (y1 + y2) / 2 - 10;
+        var bg = svgEl('rect');
+        var labelW = (rel.label || '').length * 6 + 12;
+        setAttrs(bg, { x: labelX - labelW / 2, y: labelY - 10, width: labelW, height: 16, rx: 3, fill: '#fff', stroke: '#e2e8f0', 'stroke-width': 0.5 });
+        svg.appendChild(bg);
+        var lt = svgTextEl(labelX, labelY + 2, rel.label || '', '0.65rem', '#475569');
+        svg.appendChild(lt);
+      });
+
+      // Draw entity boxes
+      entities.forEach(function(ent) {
+        var p = positions[ent.id];
+        var g = svgEl('g');
+
+        // Table body background
+        var body = svgEl('rect');
+        setAttrs(body, { x: p.x, y: p.y, width: p.w, height: p.h, rx: 6, fill: '#fff', stroke: '#cbd5e1', 'stroke-width': 1.5 });
+        g.appendChild(body);
+
+        // Header
+        var hdr = svgEl('rect');
+        setAttrs(hdr, { x: p.x, y: p.y, width: p.w, height: 34, rx: 6, fill: '#1e293b' });
+        g.appendChild(hdr);
+        // Clip bottom corners of header
+        var hdrFill = svgEl('rect');
+        setAttrs(hdrFill, { x: p.x, y: p.y + 20, width: p.w, height: 14, fill: '#1e293b' });
+        g.appendChild(hdrFill);
+
+        var nameT = svgTextEl(p.x + p.w / 2, p.y + 22, ent.name || ent.id, '0.8rem', '#fff', '600');
+        g.appendChild(nameT);
+
+        // Fields
+        (ent.fields || []).forEach(function(f, fi) {
+          var fy = p.y + 36 + fi * rowH + 16;
+          // Separator line
+          if (fi > 0) {
+            var sep = svgEl('line');
+            setAttrs(sep, { x1: p.x + 8, y1: fy - 16, x2: p.x + p.w - 8, y2: fy - 16, stroke: '#f1f5f9', 'stroke-width': 1 });
+            g.appendChild(sep);
+          }
+
+          var icons = '';
+          if (f.primaryKey) icons += 'PK ';
+          if (f.required) icons += '* ';
+
+          var fieldName = svgTextEl(p.x + 14, fy, (icons + (f.name || '')), '0.7rem', '#334155', f.primaryKey ? '600' : 'normal');
+          fieldName.setAttribute('text-anchor', 'start');
+          g.appendChild(fieldName);
+
+          var fieldType = svgTextEl(p.x + p.w - 14, fy, f.type || '', '0.65rem', '#94a3b8');
+          fieldType.setAttribute('text-anchor', 'end');
+          g.appendChild(fieldType);
+        });
+
+        svg.appendChild(g);
+      });
+
+      var diagWrap = el('div', 'diagram-container');
+      diagWrap.appendChild(svg);
+      container.appendChild(diagWrap);
+
+      // Review items per entity
+      entities.forEach(function(e) {
+        reviewState.dataModels[e.id] = { status: 'pending', notes: '' };
+        var item = buildReviewItem('dataModels', e.id, e.name || e.id);
+        container.appendChild(item);
+      });
+    }
+
+    // ===============================
+    // 3. Data Flow - Sequence Diagram
+    // ===============================
+    function renderDataFlow(data, container) {
+      var sequences = data.sequences || [];
+      if (sequences.length === 0) {
+        container.innerHTML = '<div class="empty-section">No sequences defined in plan</div>';
+        return;
+      }
+
+      var actorColors = {
+        user: '#818cf8', ui: '#2563eb', provider: '#16a34a',
+        service: '#f59e0b', database: '#8b5cf6', external: '#6b7280'
+      };
+
+      sequences.forEach(function(seq) {
+        var titleEl = el('div', 'sequence-title');
+        titleEl.textContent = seq.name || seq.id;
+        container.appendChild(titleEl);
+
+        if (seq.description) {
+          var descEl = el('div', 'sequence-desc');
+          descEl.textContent = seq.description;
+          container.appendChild(descEl);
+        }
+
+        var actors = seq.actors || [];
+        var steps = seq.steps || [];
+        if (actors.length === 0) return;
+
+        var actorSpacing = 180;
+        var padX = 40, padY = 30;
+        var headerH = 50;
+        var stepH = 75;
+        var svgW = padX * 2 + (actors.length - 1) * actorSpacing + 120;
+        var svgH = padY + headerH + steps.length * stepH + 40;
+
+        var svg = createSvg(svgW, svgH);
+        svg.innerHTML += '<defs><marker id="arrowSeq" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#475569"/></marker><marker id="arrowSeqErr" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#dc2626"/></marker></defs>';
+
+        // Actor positions
+        var actorPos = {};
+        actors.forEach(function(a, i) {
+          var x = padX + 60 + i * actorSpacing;
+          actorPos[a.id] = x;
+
+          // Header box
+          var color = actorColors[a.type] || '#6b7280';
+          var boxW = 120;
+          var hRect = svgEl('rect');
+          setAttrs(hRect, { x: x - boxW / 2, y: padY, width: boxW, height: 36, rx: 4, fill: color });
+          svg.appendChild(hRect);
+
+          var nameT = svgTextEl(x, padY + 22, a.name || a.id, '0.75rem', '#fff', '600');
+          svg.appendChild(nameT);
+
+          // Lifeline
+          var life = svgEl('line');
+          setAttrs(life, { x1: x, y1: padY + 36, x2: x, y2: svgH - 10, stroke: '#cbd5e1', 'stroke-width': 1, 'stroke-dasharray': '6,4' });
+          svg.appendChild(life);
+        });
+
+        // Steps - success path is primary, errors are secondary annotations
+        steps.forEach(function(step, si) {
+          var y = padY + headerH + si * stepH + 20;
+          var fromX = actorPos[step.from];
+          var toX = actorPos[step.to];
+          if (fromX === undefined || toX === undefined) return;
+
+          // Always draw primary arrow as success path (solid dark)
+          var arrow = svgEl('line');
+          var dashArr = step.isAsync ? '6,4' : 'none';
+          setAttrs(arrow, { x1: fromX, y1: y, x2: toX, y2: y, stroke: '#475569', 'stroke-width': 1.5, 'marker-end': 'url(#arrowSeq)', 'stroke-dasharray': dashArr });
+          svg.appendChild(arrow);
+
+          var midX = (fromX + toX) / 2;
+
+          // Action label above arrow (always dark)
+          var actionT = svgTextEl(midX, y - 6, step.action || '', '0.68rem', '#334155', '500');
+          svg.appendChild(actionT);
+
+          // Success response below arrow (green, prominent)
+          if (step.response) {
+            var respT = svgTextEl(midX, y + 16, step.response, '0.62rem', '#16a34a', 'normal', 'italic');
+            svg.appendChild(respT);
+          }
+
+          // Error annotation (secondary, smaller red text)
+          if (step.errorCase) {
+            var errT = svgTextEl(midX, y + 30, step.errorCase, '0.58rem', '#dc2626', 'normal', 'italic');
+            svg.appendChild(errT);
+          }
+        });
+
+        var diagWrap = el('div', 'diagram-container');
+        diagWrap.appendChild(svg);
+        container.appendChild(diagWrap);
+
+        // Review item per sequence
+        reviewState.dataFlow[seq.id] = { status: 'pending', notes: '' };
+        var item = buildReviewItem('dataFlow', seq.id, seq.name || seq.id);
+        container.appendChild(item);
+      });
+    }
+
+    // ===============================
+    // 4. Services - Dependency Diagram
+    // ===============================
+    function renderServices(data, container) {
+      var serviceList = data.serviceList || [];
+      var integrations = data.integrations || [];
+      if (serviceList.length === 0) {
+        container.innerHTML = '<div class="empty-section">No services defined in plan</div>';
+        return;
+      }
+
+      var cols = Math.min(serviceList.length, 3);
+      var boxW = 280, gapX = 100, gapY = 80;
+      var padX = 40, padY = 40;
+
+      // Calculate dynamic heights
+      var serviceHeights = {};
+      serviceList.forEach(function(s) {
+        var respH = (s.responsibilities || []).length * 16 + 8;
+        var methH = (s.methods || []).length * 16 + 8;
+        serviceHeights[s.id] = 40 + Math.max(respH + methH, 60) + 20;
+      });
+
+      // Position services
+      var positions = {};
+      serviceList.forEach(function(s, i) {
+        var col = i % cols;
+        var row = Math.floor(i / cols);
+        var yOff = padY;
+        for (var r = 0; r < row; r++) {
+          var maxH = 0;
+          for (var c = 0; c < cols; c++) {
+            var idx = r * cols + c;
+            if (idx < serviceList.length) maxH = Math.max(maxH, serviceHeights[serviceList[idx].id]);
+          }
+          yOff += maxH + gapY;
+        }
+        positions[s.id] = {
+          x: padX + col * (boxW + gapX),
+          y: yOff,
+          w: boxW,
+          h: serviceHeights[s.id],
+          cx: padX + col * (boxW + gapX) + boxW / 2,
+          cy: yOff + serviceHeights[s.id] / 2
+        };
+      });
+
+      var maxX = 0, maxY = 0;
+      Object.keys(positions).forEach(function(id) {
+        var p = positions[id];
+        maxX = Math.max(maxX, p.x + p.w);
+        maxY = Math.max(maxY, p.y + p.h);
+      });
+
+      var svgW = maxX + padX;
+      var svgH = maxY + padY;
+      var svg = createSvg(svgW, svgH);
+      svg.innerHTML = '<defs><marker id="arrowSvc" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#2563eb"/></marker></defs>';
+
+      // Draw integrations
+      integrations.forEach(function(intg) {
+        var from = positions[intg.from];
+        var to = positions[intg.to];
+        if (!from || !to) return;
+
+        var x1, y1, x2, y2;
+        if (from.x + from.w < to.x) {
+          x1 = from.x + from.w; y1 = from.cy;
+          x2 = to.x; y2 = to.cy;
+        } else if (to.x + to.w < from.x) {
+          x1 = from.x; y1 = from.cy;
+          x2 = to.x + to.w; y2 = to.cy;
+        } else {
+          x1 = from.cx; y1 = from.y + from.h;
+          x2 = to.cx; y2 = to.y;
+        }
+
+        var midX = (x1 + x2) / 2;
+        var d = 'M' + x1 + ',' + y1 + ' C' + midX + ',' + y1 + ' ' + midX + ',' + y2 + ' ' + x2 + ',' + y2;
+        var path = svgEl('path');
+        setAttrs(path, { d: d, fill: 'none', stroke: '#2563eb', 'stroke-width': 1.5, 'stroke-dasharray': '6,3', 'marker-end': 'url(#arrowSvc)' });
+        svg.appendChild(path);
+
+        // Protocol label
+        var labelX = (x1 + x2) / 2;
+        var labelY = (y1 + y2) / 2;
+        var bg = svgEl('rect');
+        var lw = (intg.protocol || '').length * 6.5 + 14;
+        setAttrs(bg, { x: labelX - lw / 2, y: labelY - 10, width: lw, height: 18, rx: 3, fill: '#eff6ff', stroke: '#bfdbfe', 'stroke-width': 0.5 });
+        svg.appendChild(bg);
+        var lt = svgTextEl(labelX, labelY + 3, intg.protocol || '', '0.65rem', '#2563eb', '500');
+        svg.appendChild(lt);
+      });
+
+      // Draw service boxes
+      serviceList.forEach(function(svc) {
+        var p = positions[svc.id];
+        var g = svgEl('g');
+
+        // Background
+        var bg = svgEl('rect');
+        setAttrs(bg, { x: p.x, y: p.y, width: p.w, height: p.h, rx: 6, fill: '#fff', stroke: '#cbd5e1', 'stroke-width': 1.5 });
+        g.appendChild(bg);
+
+        // Header
+        var hdr = svgEl('rect');
+        setAttrs(hdr, { x: p.x, y: p.y, width: p.w, height: 36, rx: 6, fill: '#2563eb' });
+        g.appendChild(hdr);
+        var hdrFill = svgEl('rect');
+        setAttrs(hdrFill, { x: p.x, y: p.y + 22, width: p.w, height: 14, fill: '#2563eb' });
+        g.appendChild(hdrFill);
+        var nameT = svgTextEl(p.x + p.w / 2, p.y + 23, svc.name || svc.id, '0.78rem', '#fff', '600');
+        g.appendChild(nameT);
+
+        var yOff = p.y + 46;
+
+        // Responsibilities
+        if ((svc.responsibilities || []).length > 0) {
+          var respLabel = svgTextEl(p.x + 14, yOff, 'Responsibilities:', '0.62rem', '#94a3b8', '600');
+          respLabel.setAttribute('text-anchor', 'start');
+          g.appendChild(respLabel);
+          yOff += 4;
+          svc.responsibilities.forEach(function(r) {
+            yOff += 15;
+            var rt = svgTextEl(p.x + 22, yOff, '- ' + truncate(r, 35), '0.62rem', '#475569');
+            rt.setAttribute('text-anchor', 'start');
+            g.appendChild(rt);
+          });
+          yOff += 10;
+        }
+
+        // Methods
+        if ((svc.methods || []).length > 0) {
+          var methLabel = svgTextEl(p.x + 14, yOff, 'Methods:', '0.62rem', '#94a3b8', '600');
+          methLabel.setAttribute('text-anchor', 'start');
+          g.appendChild(methLabel);
+          yOff += 4;
+          svc.methods.forEach(function(m) {
+            yOff += 15;
+            var mt = svgTextEl(p.x + 22, yOff, truncate(m, 35), '0.62rem', '#7c3aed', 'normal');
+            mt.setAttribute('text-anchor', 'start');
+            mt.setAttribute('font-family', 'monospace');
+            g.appendChild(mt);
+          });
+        }
+
+        svg.appendChild(g);
+      });
+
+      var diagWrap = el('div', 'diagram-container');
+      diagWrap.appendChild(svg);
+      container.appendChild(diagWrap);
+
+      // Review items per service
+      serviceList.forEach(function(s) {
+        reviewState.services[s.id] = { status: 'pending', notes: '' };
+        var item = buildReviewItem('services', s.id, s.name || s.id);
+        container.appendChild(item);
+      });
+    }
+
+    // ===============================
+    // 5. Implementation Phases - Timeline
+    // ===============================
+    function renderPhases(data, container) {
+      var phases = data.phases || [];
+      if (phases.length === 0) {
+        container.innerHTML = '<div class="empty-section">No phases defined in plan</div>';
+        return;
+      }
+
+      // Sort by order
+      var sorted = phases.slice().sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
+
+      var padX = 40, padY = 30;
+      var barH = 60, gapY = 30;
+      var maxTasks = Math.max.apply(null, sorted.map(function(p) { return (p.tasks || []).length; }));
+      var maxBarW = 700, minBarW = 200;
+
+      var svgW = maxBarW + padX * 2 + 60;
+      var svgH = padY + sorted.length * (barH + gapY) + 20;
+
+      var svg = createSvg(svgW, svgH);
+      svg.innerHTML = '<defs><marker id="arrowPhase" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#94a3b8"/></marker></defs>';
+
+      var phasePositions = {};
+
+      sorted.forEach(function(phase, i) {
+        var taskCount = (phase.tasks || []).length;
+        var barW = maxTasks > 0 ? Math.max(minBarW, (taskCount / maxTasks) * maxBarW) : minBarW;
+        var x = padX;
+        var y = padY + i * (barH + gapY);
+
+        phasePositions[phase.id] = { x: x, y: y, w: barW, h: barH, cx: x + barW / 2, cy: y + barH / 2 };
+
+        var g = svgEl('g');
+
+        // Color: gradient from dark to light blue
+        var lightness = 35 + (i / Math.max(sorted.length - 1, 1)) * 25;
+        var color = 'hsl(217, 71%, ' + lightness + '%)';
+
+        // Bar
+        var rect = svgEl('rect');
+        setAttrs(rect, { x: x, y: y, width: barW, height: barH, rx: 6, fill: color });
+        g.appendChild(rect);
+
+        // Phase name
+        var nameT = svgTextEl(x + 14, y + 22, (phase.name || phase.id), '0.8rem', '#fff', '600');
+        nameT.setAttribute('text-anchor', 'start');
+        g.appendChild(nameT);
+
+        // Task + criteria count
+        var acCount = (phase.acceptanceCriteria || []).length;
+        var infoText = taskCount + ' task' + (taskCount !== 1 ? 's' : '') + '  |  ' + acCount + ' criteria';
+        var infoT = svgTextEl(x + 14, y + 42, infoText, '0.65rem', 'rgba(255,255,255,0.8)');
+        infoT.setAttribute('text-anchor', 'start');
+        g.appendChild(infoT);
+
+        // Task names compact inside bar (if space)
+        if (barW > 300 && taskCount > 0) {
+          var taskStr = (phase.tasks || []).map(function(t) { return t.name; }).join(', ');
+          var tt = svgTextEl(barW + x - 10, y + 32, truncate(taskStr, 40), '0.58rem', 'rgba(255,255,255,0.6)', 'normal', 'italic');
+          tt.setAttribute('text-anchor', 'end');
+          g.appendChild(tt);
+        }
+
+        svg.appendChild(g);
+      });
+
+      // Dependency arrows
+      sorted.forEach(function(phase) {
+        (phase.dependencies || []).forEach(function(depId) {
+          var from = phasePositions[depId];
+          var to = phasePositions[phase.id];
+          if (!from || !to) return;
+
+          var x1 = from.x + from.w + 5;
+          var y1 = from.cy;
+          var x2 = to.x - 5;
+          var y2 = to.cy;
+
+          // Draw a curved arrow from end of dependency to start of phase
+          var midX = Math.max(x1, x2) + 30;
+          var d = 'M' + x1 + ',' + y1 + ' C' + midX + ',' + y1 + ' ' + midX + ',' + y2 + ' ' + x2 + ',' + y2;
+          var path = svgEl('path');
+          setAttrs(path, { d: d, fill: 'none', stroke: '#94a3b8', 'stroke-width': 1.5, 'stroke-dasharray': '4,3', 'marker-end': 'url(#arrowPhase)' });
+          svg.appendChild(path);
+        });
+      });
+
+      var diagWrap = el('div', 'diagram-container');
+      diagWrap.appendChild(svg);
+      container.appendChild(diagWrap);
+
+      // Review items per phase with details
+      sorted.forEach(function(phase) {
+        reviewState.implementationPhases[phase.id] = { status: 'pending', notes: '' };
+        var item = buildReviewItem('implementationPhases', phase.id, phase.name || phase.id);
+
+        // Add phase detail info
+        var details = el('div', 'phase-details');
+        if (phase.description) {
+          var descP = el('p');
+          descP.textContent = phase.description;
+          descP.style.marginBottom = '6px';
+          details.appendChild(descP);
+        }
+        if ((phase.dependencies || []).length > 0) {
+          var depDiv = el('div');
+          depDiv.textContent = 'Depends on: ';
+          phase.dependencies.forEach(function(d) {
+            var tag = el('span', 'phase-dep-tag');
+            tag.textContent = d;
+            depDiv.appendChild(tag);
+          });
+          depDiv.style.marginBottom = '6px';
+          details.appendChild(depDiv);
+        }
+        if ((phase.tasks || []).length > 0) {
+          var taskLabel = el('div');
+          taskLabel.innerHTML = '<strong>Tasks:</strong>';
+          var taskList = el('ul');
+          phase.tasks.forEach(function(t) {
+            var li = document.createElement('li');
+            li.textContent = t.name + (t.description ? ' - ' + t.description : '');
+            taskList.appendChild(li);
+          });
+          details.appendChild(taskLabel);
+          details.appendChild(taskList);
+        }
+        if ((phase.acceptanceCriteria || []).length > 0) {
+          var acLabel = el('div');
+          acLabel.innerHTML = '<strong>Acceptance Criteria:</strong>';
+          acLabel.style.marginTop = '6px';
+          var acList = el('ul');
+          phase.acceptanceCriteria.forEach(function(ac) {
+            var li = document.createElement('li');
+            li.textContent = ac;
+            acList.appendChild(li);
+          });
+          details.appendChild(acLabel);
+          details.appendChild(acList);
+        }
+
+        // Insert details before the review control
+        var reviewCtrl = item.querySelector('.review-control');
+        if (reviewCtrl) {
+          item.insertBefore(details, reviewCtrl);
+        } else {
+          item.appendChild(details);
+        }
+
+        container.appendChild(item);
+      });
+    }
+
+    // ===== Review Item Builder =====
+    function buildReviewItem(sectionKey, itemId, label) {
+      var div = el('div', 'review-item status-pending');
+      div.id = 'item-' + sectionKey + '-' + itemId;
+      div.setAttribute('data-section', sectionKey);
+      div.setAttribute('data-item-id', itemId);
+
+      var labelEl = el('div', 'review-item-label');
+      labelEl.textContent = label;
+      div.appendChild(labelEl);
+
+      var ctrl = el('div', 'review-control');
+      ctrl.setAttribute('data-section', sectionKey);
+      ctrl.setAttribute('data-item-id', itemId);
+
+      var toggle = el('div', 'status-toggle');
+      var radioName = sectionKey + '-' + itemId;
+
+      ['pending', 'approved', 'rejected'].forEach(function(status) {
+        var label = el('label', 'toggle ' + getToggleClass(status) + (status === 'pending' ? ' active' : ''));
+        var radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = radioName;
+        radio.value = status;
+        if (status === 'pending') radio.checked = true;
+        radio.addEventListener('change', function() {
+          onStatusChange(sectionKey, itemId, status);
+        });
+        label.appendChild(radio);
+        label.appendChild(document.createTextNode(capitalize(status)));
+        toggle.appendChild(label);
+      });
+
+      var notes = document.createElement('textarea');
+      notes.className = 'notes';
+      notes.placeholder = 'Notes (required for rejection)...';
+      notes.addEventListener('input', function() {
+        reviewState[sectionKey][itemId].notes = notes.value;
+      });
+
+      ctrl.appendChild(toggle);
+      ctrl.appendChild(notes);
+      div.appendChild(ctrl);
+
+      return div;
+    }
+
+    // ===== Status Change Handler =====
+    function onStatusChange(sectionKey, itemId, status) {
+      reviewState[sectionKey][itemId].status = status;
+
+      // Update toggle active states
+      var item = document.getElementById('item-' + sectionKey + '-' + itemId);
+      if (item) {
+        item.className = 'review-item status-' + status;
+        var toggles = item.querySelectorAll('.toggle');
+        toggles.forEach(function(t) {
+          var radio = t.querySelector('input');
+          t.classList.toggle('active', radio && radio.value === status);
+        });
+
+        // Show/hide notes
+        var notes = item.querySelector('.notes');
+        if (notes) {
+          if (status === 'rejected') {
+            notes.classList.add('visible');
+          } else {
+            notes.classList.remove('visible');
+          }
+        }
+      }
+
+      updateBadge(sectionKey);
+    }
+
+    // ===== Approve/Reject All =====
+    function setAllStatus(sectionKey, status) {
+      var items = reviewState[sectionKey];
+      Object.keys(items).forEach(function(itemId) {
+        items[itemId].status = status;
+        onStatusChange(sectionKey, itemId, status);
+
+        // Also check the correct radio
+        var item = document.getElementById('item-' + sectionKey + '-' + itemId);
+        if (item) {
+          var radio = item.querySelector('input[value="' + status + '"]');
+          if (radio) radio.checked = true;
+        }
+      });
+    }
+
+    // ===== Badge Updater =====
+    function updateBadge(sectionKey) {
+      var items = reviewState[sectionKey];
+      var keys = Object.keys(items);
+      var total = keys.length;
+      var approved = 0, rejected = 0;
+      keys.forEach(function(k) {
+        if (items[k].status === 'approved') approved++;
+        if (items[k].status === 'rejected') rejected++;
+      });
+
+      var badge = document.getElementById('badge-' + sectionKey);
+      if (!badge) return;
+
+      badge.textContent = approved + '/' + total + ' approved';
+      badge.className = 'section-badge';
+
+      if (total === 0) {
+        badge.classList.add('badge-pending');
+      } else if (approved === total) {
+        badge.classList.add('badge-approved');
+      } else if (rejected > 0) {
+        badge.classList.add('badge-mixed');
+      } else if (approved > 0) {
+        badge.classList.add('badge-mixed');
+      } else {
+        badge.classList.add('badge-pending');
+      }
+    }
+
+    // ===== Collapse Toggle =====
+    function toggleCollapse(sectionKey) {
+      var body = document.getElementById('body-' + sectionKey);
+      var chev = document.getElementById('chevron-' + sectionKey);
+      if (body) body.classList.toggle('collapsed');
+      if (chev) chev.classList.toggle('collapsed');
+    }
+
+    // ===== Copy Review =====
+    function handleCopyReview() {
+      var overallStatus = 'approved';
+
+      var sectionResults = {};
+      SECTION_DEFS.forEach(function(def) {
+        var items = reviewState[def.key];
+        var itemKeys = Object.keys(items);
+        var sectionStatus = 'approved';
+        var itemResults = {};
+
+        itemKeys.forEach(function(itemId) {
+          var s = items[itemId];
+          itemResults[itemId] = { status: s.status, notes: s.notes || '' };
+          if (s.status === 'rejected') sectionStatus = 'rejected';
+          else if (s.status === 'pending' && sectionStatus !== 'rejected') sectionStatus = 'pending';
+        });
+
+        if (sectionStatus !== 'approved') overallStatus = sectionStatus === 'rejected' ? 'rejected' : 'pending';
+
+        sectionResults[def.key] = {
+          status: sectionStatus,
+          items: itemResults
+        };
+      });
+
+      var review = {
+        meta: {
+          feature: featureName,
+          planVersion: (planData.meta && planData.meta.version) || 1,
+          reviewDate: new Date().toISOString(),
+          overallStatus: overallStatus
+        },
+        sections: sectionResults
+      };
+
+      var jsonStr = JSON.stringify(review, null, 2);
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(jsonStr).then(function() {
+          showToast('Copied!');
+          document.getElementById('submitMsg').innerHTML =
+            'Paste anywhere or run the collect script.<br><code style="font-size:0.78rem;color:#475569">python collect-review.py --name \'' + escHtml(featureName) + '\'</code>';
+        }).catch(function() {
+          fallbackDownload(jsonStr);
+        });
+      } else {
+        fallbackDownload(jsonStr);
+      }
+    }
+
+    function fallbackDownload(jsonStr) {
+      var blob = new Blob([jsonStr], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = featureName + '_review.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Downloaded!');
+      document.getElementById('submitMsg').innerHTML =
+        'Next: run <code style="font-size:0.78rem;color:#475569">python collect-review.py --name \'' + escHtml(featureName) + '\'</code>';
+    }
+
+    // ===== Toast =====
+    function showToast(msg) {
+      var toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(function() { toast.classList.remove('show'); }, 2500);
+    }
+
+    // ===== SVG Helpers =====
+    function createSvg(w, h) {
+      var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+      svg.setAttribute('width', w);
+      svg.setAttribute('height', h);
+      svg.style.maxWidth = '100%';
+      svg.style.height = 'auto';
+      return svg;
+    }
+
+    function svgEl(tag) {
+      return document.createElementNS('http://www.w3.org/2000/svg', tag);
+    }
+
+    function svgTextEl(x, y, text, fontSize, fill, fontWeight, fontStyle) {
+      var t = svgEl('text');
+      setAttrs(t, { x: x, y: y, 'text-anchor': 'middle', 'font-size': fontSize || '0.75rem', fill: fill || '#334155' });
+      if (fontWeight) t.setAttribute('font-weight', fontWeight);
+      if (fontStyle) t.setAttribute('font-style', fontStyle);
+      t.textContent = text;
+      return t;
+    }
+
+    function setAttrs(el, attrs) {
+      Object.keys(attrs).forEach(function(k) { el.setAttribute(k, attrs[k]); });
+    }
+
+    function createChevron() {
+      var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 20 20');
+      svg.setAttribute('class', 'chevron');
+      var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', 'M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z');
+      svg.appendChild(path);
+      return svg;
+    }
+
+    // ===== Arrow Path Calculator =====
+    function calcArrowPath(from, to, boxW, boxH) {
+      var dx = to.cx - from.cx;
+      var dy = to.cy - from.cy;
+
+      var x1, y1, x2, y2;
+
+      if (Math.abs(dx) > Math.abs(dy)) {
+        // Horizontal dominant
+        if (dx > 0) {
+          x1 = from.cx + boxW / 2; y1 = from.cy;
+          x2 = to.cx - boxW / 2; y2 = to.cy;
+        } else {
+          x1 = from.cx - boxW / 2; y1 = from.cy;
+          x2 = to.cx + boxW / 2; y2 = to.cy;
+        }
+      } else {
+        // Vertical dominant
+        if (dy > 0) {
+          x1 = from.cx; y1 = from.cy + boxH / 2;
+          x2 = to.cx; y2 = to.cy - boxH / 2;
+        } else {
+          x1 = from.cx; y1 = from.cy - boxH / 2;
+          x2 = to.cx; y2 = to.cy + boxH / 2;
+        }
+      }
+
+      var midX = (x1 + x2) / 2;
+      var midY = (y1 + y2) / 2;
+      return 'M' + x1 + ',' + y1 + ' C' + midX + ',' + y1 + ' ' + midX + ',' + y2 + ' ' + x2 + ',' + y2;
+    }
+
+    // ===== DOM Helpers =====
+    function el(tag, className) {
+      var e = document.createElement(tag);
+      if (className) e.className = className;
+      return e;
+    }
+
+    function escHtml(s) {
+      var div = document.createElement('div');
+      div.textContent = s || '';
+      return div.innerHTML;
+    }
+
+    function capitalize(s) {
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+
+    function getToggleClass(status) {
+      if (status === 'approved') return 'approve';
+      if (status === 'rejected') return 'reject';
+      return 'pending';
+    }
+
+    function truncate(s, max) {
+      if (!s) return '';
+      return s.length > max ? s.substring(0, max) + '...' : s;
+    }
+
+    function wrapText(text, maxChars) {
+      var words = text.split(' ');
+      var lines = [];
+      var current = '';
+      words.forEach(function(w) {
+        if ((current + ' ' + w).trim().length > maxChars && current) {
+          lines.push(current.trim());
+          current = w;
+        } else {
+          current = current ? current + ' ' + w : w;
+        }
+      });
+      if (current) lines.push(current.trim());
+      return lines.slice(0, 2); // Max 2 lines
+    }
+  </script>
+</body>
+</html>

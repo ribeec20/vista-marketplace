@@ -1,0 +1,15 @@
+---
+Iteration: 1 (plan)
+Time: 2026-02-13T12:00:00
+
+Plan written to: C:/Users/Grove/OneDrive/Documents/PYTHON/claude_plugins/vista/.vista/ralph/share-docs-plan/IMPLEMENTATION_PLAN.md
+Summary: Comprehensive implementation plan for the share_docs feature covering 7 files (2 new services, 1 new route module, 1 new template, 2 modified files, 1 test file). Plan details the ExportService, export API endpoints, self-contained HTML template with Mermaid/Tailwind/Marked CDN dependencies, export modal on the project page, and test cases.
+---
+
+---
+Iteration: 2 (plan)
+Time: 2026-02-13T14:30:00
+
+Plan written to: C:/Users/Grove/OneDrive/Documents/PYTHON/claude_plugins/vista/.vista/ralph/share-docs-plan/IMPLEMENTATION_PLAN.md
+Summary: Refined plan with verified codebase references. Confirmed ProgressService method signatures, ProjectService.get_by_id() return type, router registration patterns, Mermaid theme variables, and diagram card CSS locations. Added critical detail on HTML escaping strategy (embed as JSON via |tojson filter, render client-side) to prevent injection from Mermaid source containing HTML-like syntax. Added PROJECT_ID JS variable requirement for project.html. Documented all verified file locations and line numbers.
+---

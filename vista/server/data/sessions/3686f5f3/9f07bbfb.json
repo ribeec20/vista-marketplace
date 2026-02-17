@@ -1,0 +1,18 @@
+{
+  "id": "9f07bbfb",
+  "project_id": "3686f5f3",
+  "feature_name": "diagram_representations",
+  "name": "Say hello in exactly 3 words",
+  "provider": "claude",
+  "model": "sonnet",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Say hello in exactly 3 words",
+      "timestamp": "2026-02-11T03:10:46.097485+00:00"
+    }
+  ],
+  "created_at": "2026-02-11T03:10:44.272481+00:00",
+  "updated_at": "2026-02-11T03:10:46.097493+00:00",
+  "team_name": "vista-chat-9f07bbfb"
+}

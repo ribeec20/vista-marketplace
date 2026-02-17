@@ -1,0 +1,16 @@
+---
+Iteration: 3
+Time: 2026-02-12 00:00:00
+
+WHAT WAS DONE:
+- Fixed server config pytest override behavior to respect env var override tests and avoid defaulting auto_open_browser.
+- Updated RalphService job handling to support duplicate slug directories, refine Windows process identity checks, and stabilize stop/status transitions.
+- Updated MCP ralph_start to reject duplicate running job slugs; adjusted lifecycle/integration tests to align with stale PID handling and process checks.
+- Added targeted test patches for running-status assertions and stale PID behavior.
+- Ran pytest suite successfully (390 passed, 1 skipped).
+
+WHAT WAS NOT DONE:
+- N/A
+
+Tests: python -m pytest tests/ -q
+---

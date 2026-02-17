@@ -1,0 +1,42 @@
+flowchart TD
+    subgraph Skills["Vista Skills Layer"]
+        SU["/vista:spec-update<br/>Standalone Skill"]
+        SS["/vista:specs<br/>Modified: adds IDs + changelog"]
+        PS["/vista:project-setup<br/>Modified: mentions spec conventions"]
+    end
+
+    subgraph Agent["Sub-Agent"]
+        SA["Spec Update Agent<br/>(general-purpose)"]
+    end
+
+    subgraph Artifacts["Spec Artifacts"]
+        SF["specs/{topic}.md<br/>+ Changelog table<br/>+ Requirement IDs<br/>+ Requirement Index"]
+        DR["domain-requirements.md"]
+        AM["arch/_arch.json"]
+    end
+
+    subgraph Templates["Templates & References"]
+        ST["spec-template.md<br/>(extended)"]
+        CM["CLAUDE.md template<br/>(extended)"]
+        PT["project-skill-template.md<br/>(extended)"]
+    end
+
+    subgraph Git["Git Integration"]
+        GC["spec(feature/topic): commit"]
+        GL["git log --grep='spec('"]
+    end
+
+    subgraph Code["Codebase"]
+        CC["# Implements SM-F1: description<br/>Code comments with req IDs"]
+    end
+
+    SU -->|"spawns"| SA
+    SA -->|"reads"| DR
+    SA -->|"modifies"| SF
+    SA -->|"creates"| GC
+    SS -->|"generates with IDs"| SF
+    PS -->|"creates from"| CM
+    PS -->|"creates from"| PT
+    ST -->|"defines format"| SF
+    GC -->|"searchable via"| GL
+    SF <-->|"bidirectional traceability"| CC

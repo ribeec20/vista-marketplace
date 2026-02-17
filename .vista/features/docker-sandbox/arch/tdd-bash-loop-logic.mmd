@@ -1,0 +1,77 @@
+flowchart TD
+    %% TDD: BashLoopGenerator.generate() logic flow
+    %% Generates a Linux bash loop script from template
+    %% Mirrors the PowerShell LOOP_SCRIPT_TEMPLATE but for bash
+
+    %% Inputs
+    INPUT_PROVIDER["Input: provider: str<br/>'claude' | 'opencode'"]
+    INPUT_MODEL["Input: model: str<br/>e.g. 'opus', 'sonnet'"]
+    INPUT_MODE["Input: mode: str<br/>'plan' | 'build'"]
+    INPUT_ITERS["Input: max_iterations: int<br/>0=unlimited, >0=capped"]
+    INPUT_FEATURE["Input: feature_dir: str<br/>relative path inside container<br/>e.g. '.vista/features/{name}'"]
+    INPUT_PROJECT["Input: project_root: str<br/>'/workspace' (fixed container path)"]
+    INPUT_JOB_DIR["Input: job_dir: str<br/>relative path to job directory<br/>e.g. '.vista/ralph/{job_id}'"]
+    INPUT_FEATURE_NAME["Input: feature_name: str"]
+
+    INPUT_PROVIDER --> SELECT_PROVIDER
+    INPUT_MODEL --> SUBSTITUTE
+    INPUT_MODE --> VALIDATE_MODE
+    INPUT_ITERS --> VALIDATE_ITERS
+    INPUT_FEATURE --> SUBSTITUTE
+    INPUT_PROJECT --> SUBSTITUTE
+    INPUT_JOB_DIR --> SUBSTITUTE
+    INPUT_FEATURE_NAME --> SUBSTITUTE
+
+    %% Step 1: Validate mode
+    VALIDATE_MODE{mode in<br/>['plan', 'build']?}
+    VALIDATE_MODE -->|No| ERR_MODE["Raise ValueError<br/>'Invalid mode: {mode}.<br/>Must be plan or build.'"]
+    VALIDATE_MODE -->|Yes| VALIDATE_ITERS
+
+    %% Step 2: Validate iterations
+    VALIDATE_ITERS{max_iterations >= 0?}
+    VALIDATE_ITERS -->|No| ERR_ITERS["Raise ValueError<br/>'max_iterations must be >= 0,<br/>got {max_iterations}'"]
+    VALIDATE_ITERS -->|Yes| SELECT_PROVIDER
+
+    %% Step 3: Select provider invocation block
+    SELECT_PROVIDER{provider?}
+    SELECT_PROVIDER -->|"claude"| CLAUDE_BLOCK["invocation_block =<br/>printf '%s' \"$PROMPT_CONTENT\" | claude -p \\<br/>  --dangerously-skip-permissions \\<br/>  --output-format=stream-json \\<br/>  --model \"$MODEL\" \\<br/>  --verbose"]
+    SELECT_PROVIDER -->|"opencode"| OPENCODE_BLOCK["invocation_block =<br/>opencode run \\<br/>  --model \"$MODEL\" \\<br/>  \"$PROMPT_CONTENT\""]
+    SELECT_PROVIDER -->|"unknown"| ERR_PROVIDER["Raise ValueError<br/>'Unknown provider: {provider}.<br/>Supported: claude, opencode'"]
+
+    CLAUDE_BLOCK --> SUBSTITUTE
+    OPENCODE_BLOCK --> SUBSTITUTE
+
+    %% Step 4: Template substitution
+    SUBSTITUTE["Substitute into BASH_LOOP_TEMPLATE:<br/>  {mode} → mode<br/>  {max_iterations} → max_iterations<br/>  {model} → model<br/>  {feature_name} → feature_name<br/>  {feature_dir_abs} → project_root/feature_dir<br/>  {project_root_abs} → project_root<br/>  {job_dir_abs} → project_root/job_dir<br/>  {provider_name} → provider display name<br/>  {invocation_block} → selected block"]
+    SUBSTITUTE --> VALIDATE_OUTPUT
+
+    %% Step 5: Validate output
+    VALIDATE_OUTPUT["Validate generated script:<br/>  - Starts with #!/bin/bash<br/>  - Contains set -e (fail on error)<br/>  - Has no Windows paths (no backslash paths)<br/>  - Has no PowerShell syntax ($Var, Write-Host)<br/>  - All template placeholders resolved<br/>    (no remaining {.*} patterns)"]
+    VALIDATE_OUTPUT --> VALID{All checks<br/>pass?}
+    VALID -->|No| ERR_TEMPLATE["Raise ScriptGenerationError<br/>'Generated script failed validation:<br/>{specific_check_that_failed}'"]
+    VALID -->|Yes| OUTPUT
+
+    %% Output
+    OUTPUT["Return: str<br/>Complete bash script content<br/>Ready to write to loop.sh"]
+
+    %% Script structure annotation
+    SCRIPT_STRUCTURE["Generated script structure:<br/>1. #!/bin/bash + set -e<br/>2. Variable declarations (MODE, MODEL, etc.)<br/>3. Path setup (FEATURE_DIR, PROJECT_ROOT, etc.)<br/>4. Banner output (echo)<br/>5. Prompt file existence check<br/>6. While loop with iteration counter<br/>7. Prompt composition (task.md + progress.txt)<br/>8. Provider invocation block<br/>9. Exit code check<br/>10. git push<br/>11. Completion check (build mode)<br/>12. Final banner"]
+    OUTPUT -.-> SCRIPT_STRUCTURE
+
+    %% Styling
+    style INPUT_PROVIDER fill:#26c,color:#fff
+    style INPUT_MODEL fill:#26c,color:#fff
+    style INPUT_MODE fill:#26c,color:#fff
+    style INPUT_ITERS fill:#26c,color:#fff
+    style INPUT_FEATURE fill:#26c,color:#fff
+    style INPUT_PROJECT fill:#26c,color:#fff
+    style INPUT_JOB_DIR fill:#26c,color:#fff
+    style INPUT_FEATURE_NAME fill:#26c,color:#fff
+    style OUTPUT fill:#4a4,color:#fff
+    style ERR_MODE fill:#f44,color:#fff
+    style ERR_ITERS fill:#f44,color:#fff
+    style ERR_PROVIDER fill:#f44,color:#fff
+    style ERR_TEMPLATE fill:#f44,color:#fff
+    style SCRIPT_STRUCTURE fill:#555,color:#fff
+    style CLAUDE_BLOCK fill:#c60,color:#fff
+    style OPENCODE_BLOCK fill:#c60,color:#fff

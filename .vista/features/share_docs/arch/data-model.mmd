@@ -1,0 +1,47 @@
+erDiagram
+    PROJECT ||--o{ FEATURE : contains
+    FEATURE ||--o{ DIAGRAM : "has arch"
+    FEATURE ||--o| REQUIREMENTS : "has docs"
+    FEATURE }o--|| ARCH_MANIFEST : "described by"
+
+    PROJECT {
+        string id PK
+        string name
+        string root_path
+    }
+
+    FEATURE {
+        string name PK
+        bool has_arch_manifest
+        int arch_diagram_count
+        bool has_requirements
+    }
+
+    ARCH_MANIFEST {
+        string feature FK
+        json diagrams "array of diagram refs"
+    }
+
+    DIAGRAM {
+        string file PK "e.g. system-architecture.mmd"
+        string name "Human-readable label"
+        string type "mermaid or drawio"
+        string diagramType "flowchart, sequence, er, etc."
+        string category "architecture or tdd"
+        string description
+    }
+
+    REQUIREMENTS {
+        string feature FK
+        text markdown_content
+    }
+
+    EXPORT_REQUEST {
+        string project_id FK
+        json selected_features "features with diagram lists"
+        date export_date
+        string output_filename
+    }
+
+    EXPORT_REQUEST }o--o{ FEATURE : includes
+    EXPORT_REQUEST }o--o{ DIAGRAM : includes

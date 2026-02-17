@@ -1,0 +1,22 @@
+{
+  "job_id": "d23f7244-bc6a-4416-a25d-fb77b92093bf",
+  "slug": "docker-sandbox-build",
+  "mode": "build",
+  "status": "completed",
+  "provider": "claude",
+  "model": "opus",
+  "iterations": 3,
+  "current_iteration": 1,
+  "pid": 63696,
+  "created_at": "2026-02-12T22:32:54.035335+00:00",
+  "started_at": "2026-02-12T22:32:54.035335+00:00",
+  "completed_at": "2026-02-12T22:49:54.190149+00:00",
+  "error": null,
+  "progress_tail": [
+    "- `server/services/ralph_service.py` \u2014 Added sandbox branch in create_job() and stop_job()",
+    "- `server/app.py` \u2014 Registered sandbox routes",
+    "- `mcp_server.py` \u2014 Added sandbox param to ralph_start tool",
+    "",
+    "ALL PHASES COMPLETE"
+  ]
+}

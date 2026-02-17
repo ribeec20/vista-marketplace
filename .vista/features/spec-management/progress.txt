@@ -1,0 +1,4 @@
+Feature: spec-management
+Status: Not Started
+
+--- Progress Log ---

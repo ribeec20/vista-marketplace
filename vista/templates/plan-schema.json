@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Vista Feature Plan",
+  "description": "Schema for a Vista feature plan document",
+  "type": "object",
+  "required": ["meta", "sections"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["feature", "version", "created", "lastModified", "status", "description"],
+      "properties": {
+        "feature": { "type": "string" },
+        "version": { "type": "integer", "minimum": 1, "default": 1 },
+        "created": { "type": "string", "format": "date-time" },
+        "lastModified": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["draft", "review", "approved", "implementing"] },
+        "description": { "type": "string" }
+      }
+    },
+    "sections": {
+      "type": "object",
+      "required": ["implementationPhases"],
+      "properties": {
+        "architecture": {
+          "type": "object",
+          "description": "Reference to architecture directory with native diagram files",
+          "properties": {
+            "ref": {
+              "type": "string",
+              "description": "Path to _arch.json manifest file",
+              "default": "./arch/_arch.json"
+            }
+          }
+        },
+        "implementationPhases": {
+          "type": "object",
+          "required": ["phases"],
+          "properties": {
+            "phases": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "name", "description", "order", "dependencies", "tasks", "acceptanceCriteria"],
+                "properties": {
+                  "id": { "type": "string" },
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "order": { "type": "integer" },
+                  "dependencies": { "type": "array", "items": { "type": "string" } },
+                  "tasks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["name", "description", "files"],
+                      "properties": {
+                        "name": { "type": "string" },
+                        "description": { "type": "string" },
+                        "files": { "type": "array", "items": { "type": "string" } }
+                      }
+                    }
+                  },
+                  "acceptanceCriteria": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

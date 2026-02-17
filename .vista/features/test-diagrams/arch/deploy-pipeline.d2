@@ -1,0 +1,38 @@
+direction: right
+
+dev: Developer {
+  shape: person
+}
+
+repo: GitHub Repo {
+  pr: Pull Request
+  main: main branch
+}
+
+ci: CI Pipeline {
+  lint: Lint & Type Check
+  test: Run Tests
+  build: Build Artifacts
+}
+
+staging: Staging {
+  shape: cloud
+  deploy: Deploy
+  smoke: Smoke Tests
+}
+
+prod: Production {
+  shape: cloud
+  deploy: Deploy
+  monitor: Health Check
+}
+
+dev -> repo.pr: push
+repo.pr -> ci.lint: trigger
+ci.lint -> ci.test: pass
+ci.test -> ci.build: pass
+ci.build -> staging.deploy: artifacts
+staging.deploy -> staging.smoke: verify
+staging.smoke -> repo.main: approve & merge
+repo.main -> prod.deploy: auto-deploy
+prod.deploy -> prod.monitor: verify

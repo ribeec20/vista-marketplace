@@ -1,0 +1,65 @@
+{
+  "server": {
+    "auto_start": true,
+    "auto_open_browser": true,
+    "host": "127.0.0.1",
+    "port": 3456
+  },
+  "providers": {
+    "claude": {
+      "enabled": true,
+      "display_name": "Claude Code"
+    },
+    "opencode": {
+      "enabled": true,
+      "display_name": "OpenCode"
+    }
+  },
+  "ralph": {
+    "defaults": {
+      "provider": "claude",
+      "model": "sonnet",
+      "iterations": 3
+    },
+    "summarizer": {
+      "provider": "claude",
+      "model": "haiku"
+    },
+    "providers": {
+      "claude": {
+        "enabled": true,
+        "models_allowed": ["opus", "sonnet", "haiku"],
+        "models_blocked": [],
+        "favorites": ["sonnet"],
+        "model_metadata": {
+          "opus": {
+            "cost_tier": "expensive",
+            "best_for_tags": ["complex reasoning", "architecture", "debugging"],
+            "best_for_notes": "Best for tasks requiring deep analysis"
+          },
+          "sonnet": {
+            "cost_tier": "moderate",
+            "best_for_tags": ["code generation", "planning", "general"],
+            "best_for_notes": "Good all-rounder, fast enough for iteration loops"
+          },
+          "haiku": {
+            "cost_tier": "cheap",
+            "best_for_tags": ["fast iteration", "simple tasks", "summarization"],
+            "best_for_notes": "Fast and cost-effective for simple tasks"
+          }
+        }
+      },
+      "opencode": {
+        "enabled": true,
+        "models_allowed": [],
+        "models_blocked": [],
+        "favorites": [],
+        "model_metadata": {}
+      }
+    }
+  },
+  "tools": {
+    "teams": { "enabled": true },
+    "ralph": { "enabled": true }
+  }
+}

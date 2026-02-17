@@ -1,0 +1,2722 @@
+{% extends "_base.html" %}
+
+{% block title %}Architecture: {{ feature_name }} - {{ project.name }}{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@15/marked.min.js"></script>
+<!-- PlantUML encoder (~10KB) — loaded eagerly for PlantUML diagram rendering -->
+<script src="https://cdn.jsdelivr.net/npm/plantuml-encoder@1.4.0/dist/plantuml-encoder.min.js"></script>
+<link rel="stylesheet" href="/static/arch-chat.css">
+<style>
+    .diagram-card {
+        background: #1e293b;
+        border: 2px solid #334155;
+        border-radius: 8px;
+        overflow: hidden;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        cursor: pointer;
+    }
+    .diagram-card:hover {
+        border-color: #475569;
+        box-shadow: 0 0 0 1px #475569;
+    }
+    .diagram-card.attached {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 1px #2563eb;
+    }
+    .diagram-card.attached:hover {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 1px #3b82f6;
+    }
+    .diagram-card.tdd {
+        border-color: #854d0e;
+    }
+    .diagram-card.tdd:hover {
+        border-color: #a16207;
+    }
+    .diagram-card.tdd.attached {
+        border-color: #2563eb;
+    }
+    .diagram-header {
+        padding: 10px 16px;
+        border-bottom: 1px solid #334155;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+    .diagram-body {
+        position: relative;
+        overflow: hidden;
+        background: #0f172a;
+        min-height: 200px;
+        max-height: 500px;
+    }
+    .diagram-viewport {
+        width: 100%;
+        height: 100%;
+        cursor: grab;
+        transform-origin: 0 0;
+        padding: 16px;
+    }
+    .diagram-viewport:active {
+        cursor: grabbing;
+    }
+    .diagram-viewport .mermaid svg {
+        max-width: none;
+    }
+    /* Make mermaid lines and text more visible */
+    .diagram-viewport .mermaid svg .flowchart-link,
+    .diagram-viewport .mermaid svg .edge-pattern-dotted,
+    .diagram-viewport .mermaid svg path.path,
+    .diagram-viewport .mermaid svg path[class*="edge"],
+    .diagram-viewport .mermaid svg line {
+        stroke-width: 2.5px !important;
+    }
+    .diagram-viewport .mermaid svg .edgeLabel,
+    .diagram-viewport .mermaid svg .nodeLabel,
+    .diagram-viewport .mermaid svg .label {
+        font-size: 14px !important;
+    }
+    .diagram-viewport .mermaid svg .edgeLabel {
+        font-size: 12px !important;
+    }
+    .diagram-viewport .mermaid svg marker path {
+        stroke-width: 1.5px !important;
+    }
+    .diagram-zoom-controls {
+        position: absolute;
+        bottom: 8px;
+        right: 8px;
+        display: flex;
+        gap: 4px;
+        z-index: 5;
+    }
+    .diagram-zoom-controls button {
+        width: 28px;
+        height: 28px;
+        border-radius: 4px;
+        background: #334155;
+        color: #e2e8f0;
+        border: 1px solid #475569;
+        cursor: pointer;
+        font-size: 0.875rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+    .diagram-zoom-controls button:hover {
+        opacity: 1;
+        background: #475569;
+    }
+    .attach-indicator {
+        font-size: 0.7rem;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 500;
+        transition: all 0.15s;
+        white-space: nowrap;
+    }
+    .attach-indicator.off {
+        background: #334155;
+        color: #94a3b8;
+    }
+    .attach-indicator.on {
+        background: #1e3a5f;
+        color: #60a5fa;
+    }
+    .badge {
+        font-size: 0.65rem;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .badge-arch {
+        background: #1e3a5f;
+        color: #60a5fa;
+    }
+    .badge-tdd {
+        background: #422006;
+        color: #fbbf24;
+    }
+    /* Floating Notion-style Chat Panel */
+    .chat-panel {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        top: auto;
+        width: 480px;
+        min-width: 380px;
+        height: 60vh;
+        min-height: 400px;
+        max-width: calc(100vw - 48px);
+        max-height: calc(100vh - 100px);
+        background: #1a1a1a;
+        border: 1px solid #2d2d2d;
+        border-radius: 16px;
+        box-shadow: 0 12px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
+        z-index: 50;
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
+        resize: both;
+    }
+    .chat-panel.open {
+        display: flex;
+    }
+    .chat-panel.dragging {
+        opacity: 0.9;
+        box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+    }
+    .chat-panel.locked {
+        resize: none;
+    }
+    .chat-panel.locked .chat-header {
+        cursor: default;
+    }
+    .chat-panel ::-webkit-resizer {
+        background: #3d3d3d;
+        border-radius: 8px 0 12px 0;
+    }
+    .chat-toggle {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: #2563eb;
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-size: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        z-index: 51;
+        transition: background 0.2s, opacity 0.2s, transform 0.2s;
+    }
+    .chat-toggle:hover {
+        background: #1d4ed8;
+    }
+    .chat-toggle.hidden-fab {
+        opacity: 0;
+        pointer-events: none;
+        transform: scale(0.5);
+    }
+    /* Header */
+    .chat-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        border-bottom: 1px solid #2d2d2d;
+        background: #1a1a1a;
+        cursor: move;
+        user-select: none;
+        flex-shrink: 0;
+        min-height: 44px;
+    }
+    .chat-header:hover {
+        background: #202020;
+    }
+    .chat-header-left {
+        flex: 1;
+        min-width: 0;
+        margin-right: 12px;
+    }
+    .chat-header-dropdown {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+        background: transparent;
+        border: none;
+        color: #d4d4d4;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        border-radius: 4px;
+        max-width: 100%;
+    }
+    .chat-header-dropdown:hover {
+        background: #252525;
+    }
+    .chat-header-dropdown span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 200px;
+    }
+    .chat-header-dropdown svg {
+        width: 12px;
+        height: 12px;
+        flex-shrink: 0;
+    }
+    .chat-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+    .chat-header-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        background: transparent;
+        border: none;
+        color: #737373;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .chat-header-btn svg {
+        width: 14px;
+        height: 14px;
+    }
+    .chat-header-btn:hover {
+        background: #252525;
+        color: #a3a3a3;
+    }
+    .lock-btn .unlock-icon {
+        display: none;
+    }
+    .lock-btn.locked .lock-icon {
+        display: block;
+    }
+    .lock-btn.locked .unlock-icon {
+        display: none;
+    }
+    .lock-btn:not(.locked) .lock-icon {
+        display: none;
+    }
+    .lock-btn:not(.locked) .unlock-icon {
+        display: block;
+    }
+    .window-size-controls {
+        display: flex;
+        align-items: center;
+        gap: 1px;
+        background: #252525;
+        border-radius: 4px;
+        padding: 1px;
+        margin-right: 4px;
+    }
+    .size-btn {
+        padding: 2px 6px;
+        background: transparent;
+        border: none;
+        border-radius: 3px;
+        color: #737373;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        min-width: 20px;
+        line-height: 1.2;
+    }
+    .size-btn:hover {
+        background: #2d2d2d;
+        color: #a3a3a3;
+    }
+    .size-btn.active {
+        background: #3d3d3d;
+        color: #f5f5f5;
+    }
+    /* Session Popup */
+    .session-popup {
+        position: absolute;
+        top: 52px;
+        left: 16px;
+        right: 16px;
+        background: #252525;
+        border: 1px solid #2d2d2d;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        z-index: 100;
+        max-height: 300px;
+        overflow: hidden;
+        display: none;
+    }
+    .session-popup.open {
+        display: block;
+    }
+    .session-popup-header {
+        padding: 12px 16px;
+        border-bottom: 1px solid #2d2d2d;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .session-new-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: #2563eb;
+        border: none;
+        border-radius: 6px;
+        color: white;
+        font-size: 0.8125rem;
+        cursor: pointer;
+    }
+    .session-new-btn:hover {
+        background: #3b82f6;
+    }
+    .session-list {
+        max-height: 200px;
+        overflow-y: auto;
+        padding: 4px;
+    }
+    .session-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+    .session-item:hover {
+        background: #2a2a2a;
+    }
+    .session-item.active {
+        background: rgba(99, 102, 241, 0.1);
+    }
+    .session-item-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .session-item-name {
+        font-size: 0.875rem;
+        color: #d4d4d4;
+        font-weight: 500;
+    }
+    .session-item-meta {
+        font-size: 0.75rem;
+        color: #737373;
+    }
+    .session-item-delete {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        background: transparent;
+        border: none;
+        color: #737373;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+    }
+    .session-item:hover .session-item-delete {
+        opacity: 1;
+    }
+    .session-item-delete:hover {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+    }
+    /* Config & Status Bars */
+    .chat-config-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-bottom: 1px solid #2d2d2d;
+        background: #1a1a1a;
+        flex-shrink: 0;
+    }
+    .chat-config-select {
+        padding: 6px 10px;
+        background: #252525;
+        border: 1px solid #2d2d2d;
+        border-radius: 4px;
+        color: #d4d4d4;
+        font-size: 0.8125rem;
+        cursor: pointer;
+        flex: 1;
+        min-width: 0;
+    }
+    .service-status-bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 6px 12px;
+        border-bottom: 1px solid #2d2d2d;
+        background: #1a1a1a;
+        flex-shrink: 0;
+    }
+    .service-indicator {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.75rem;
+        color: #737373;
+    }
+    .service-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #ef4444;
+    }
+    .service-dot.online {
+        background: #22c55e;
+    }
+    .attached-context-bar, .selected-elements-bar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-bottom: 1px solid #2d2d2d;
+        flex-shrink: 0;
+    }
+    .attached-context-bar {
+        background: rgba(37, 99, 235, 0.05);
+    }
+    .selected-elements-bar {
+        background: rgba(245, 158, 11, 0.05);
+    }
+    .attached-context-label, .selected-elements-label {
+        font-size: 0.6875rem;
+        color: #737373;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+    .attached-context-list, .selected-elements-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        flex: 1;
+        min-width: 0;
+    }
+    .context-item, .selected-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.6875rem;
+        white-space: nowrap;
+    }
+    .context-item {
+        background: rgba(37, 99, 235, 0.1);
+        border: 1px solid rgba(37, 99, 235, 0.2);
+        color: #60a5fa;
+    }
+    .selected-chip {
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+        color: #fbbf24;
+    }
+    .selected-clear-btn {
+        padding: 2px 8px;
+        background: transparent;
+        border: 1px solid #2d2d2d;
+        border-radius: 4px;
+        color: #737373;
+        font-size: 0.6875rem;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .selected-clear-btn:hover {
+        background: #252525;
+        color: #a3a3a3;
+    }
+    /* Messages */
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 20px 16px;
+        display: flex;
+        flex-direction: column;
+    }
+    .chat-welcome {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+        text-align: center;
+    }
+    .chat-welcome-avatar {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+    }
+    .chat-welcome-avatar svg {
+        width: 28px;
+        height: 28px;
+        color: white;
+    }
+    .chat-welcome-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #f5f5f5;
+        margin-bottom: 24px;
+    }
+    .chat-suggestions {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .chat-suggestion {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: #252525;
+        border: 1px solid #2d2d2d;
+        border-radius: 8px;
+        cursor: pointer;
+        text-align: left;
+        transition: all 0.15s ease;
+    }
+    .chat-suggestion:hover {
+        background: #2a2a2a;
+        border-color: #3d3d3d;
+    }
+    .chat-suggestion-icon {
+        width: 18px;
+        height: 18px;
+        color: #a3a3a3;
+        flex-shrink: 0;
+    }
+    .chat-suggestion-text {
+        font-size: 0.875rem;
+        color: #d4d4d4;
+    }
+    .chat-msg {
+        margin-bottom: 16px;
+        animation: msgSlideIn 0.2s ease-out;
+        max-width: 100%;
+    }
+    @keyframes msgSlideIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .chat-msg.user {
+        display: flex;
+        justify-content: flex-end;
+    }
+    .chat-msg.user .msg-bubble {
+        background: #2563eb;
+        color: white;
+        padding: 12px 16px;
+        border-radius: 18px 18px 4px 18px;
+        max-width: 80%;
+        font-size: 0.9375rem;
+        line-height: 1.5;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        word-break: break-word;
+    }
+    .chat-msg.assistant {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+    }
+    .msg-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .msg-avatar svg {
+        width: 14px;
+        height: 14px;
+        color: white;
+    }
+    .msg-content {
+        flex: 1;
+        color: #e5e5e5;
+        font-size: 0.9375rem;
+        line-height: 1.6;
+        min-width: 0;
+        max-width: calc(100% - 40px);
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        word-break: break-word;
+    }
+    .msg-content p {
+        margin: 0 0 12px 0;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+    .msg-content p:last-child {
+        margin-bottom: 0;
+    }
+    .msg-content pre {
+        background: #252525;
+        padding: 12px;
+        border-radius: 8px;
+        overflow-x: auto;
+        margin: 12px 0;
+        border: 1px solid #2d2d2d;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+    .msg-content code {
+        font-family: ui-monospace, monospace;
+        font-size: 0.8125rem;
+    }
+    .msg-content :not(pre) > code {
+        background: rgba(255,255,255,0.1);
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+    .msg-content ul, .msg-content ol {
+        margin: 12px 0;
+        padding-left: 24px;
+    }
+    .chat-thinking {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        margin-bottom: 16px;
+    }
+    .thinking-content {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        background: #252525;
+        border-radius: 12px;
+        font-size: 0.9375rem;
+        color: #a3a3a3;
+        white-space: nowrap;
+    }
+    .thinking-dots {
+        display: flex;
+        gap: 4px;
+    }
+    .thinking-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #6366f1;
+        animation: dotBounce 1.4s ease-in-out infinite both;
+    }
+    .thinking-dot:nth-child(1) {
+        animation-delay: -0.32s;
+    }
+    .thinking-dot:nth-child(2) {
+        animation-delay: -0.16s;
+    }
+    @keyframes dotBounce {
+        0%, 80%, 100% { transform: scale(0); }
+        40% { transform: scale(1); }
+    }
+    /* Input */
+    .chat-input-container {
+        padding: 16px;
+        border-top: 1px solid #2d2d2d;
+        background: #1a1a1a;
+    }
+    .chat-input-wrapper {
+        background: #252525;
+        border: 1px solid #2d2d2d;
+        border-radius: 12px;
+        padding: 12px;
+    }
+    .chat-input-wrapper:focus-within {
+        border-color: #404040;
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+    }
+    .chat-input-context {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 6px;
+    }
+    .chat-context-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        background: rgba(37, 99, 235, 0.15);
+        border: 1px solid rgba(37, 99, 235, 0.25);
+        border-radius: 4px;
+        font-size: 0.6875rem;
+        color: #60a5fa;
+    }
+    .chat-context-badge svg {
+        width: 10px;
+        height: 10px;
+    }
+    .chat-input-area {
+        display: flex;
+        gap: 12px;
+        align-items: flex-end;
+    }
+    .chat-input-area textarea {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: #f5f5f5;
+        padding: 0;
+        resize: none;
+        font-size: 0.9375rem;
+        line-height: 1.5;
+        min-height: 24px;
+        max-height: 120px;
+        font-family: inherit;
+    }
+    .chat-input-area textarea::placeholder {
+        color: #737373;
+    }
+    .chat-input-area textarea:focus {
+        outline: none;
+    }
+    .chat-input-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .chat-input-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: transparent;
+        border: none;
+        color: #737373;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .chat-input-btn:hover {
+        background: #2d2d2d;
+        color: #a3a3a3;
+    }
+    .chat-send-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: #2563eb;
+        border: none;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .chat-send-btn:hover {
+        background: #3b82f6;
+    }
+    .chat-send-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
+    .diagram-updating {
+        animation: pulse-border 1s ease-in-out;
+    }
+    @keyframes pulse-border {
+        0% { border-color: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,0.3); }
+        100% { border-color: #334155; box-shadow: none; }
+    }
+    .chat-thinking {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        margin-bottom: 12px;
+        margin-right: 20%;
+        border-radius: 6px;
+        background: #1a2332;
+        color: #94a3b8;
+        font-size: 0.8rem;
+    }
+    .chat-thinking .thinking-icon {
+        color: #f97316;
+        font-size: 0.75rem;
+        animation: thinking-pulse 1.5s ease-in-out infinite;
+    }
+    .chat-thinking .thinking-text {
+        animation: thinking-fade 2s ease-in-out infinite;
+    }
+    @keyframes thinking-pulse {
+        0%, 100% { opacity: 0.4; transform: scale(0.9); }
+        50% { opacity: 1; transform: scale(1.1); }
+    }
+    @keyframes thinking-fade {
+        0%, 100% { opacity: 0.5; }
+        50% { opacity: 1; }
+    }
+    .chat-msg.user.sent-flash {
+        animation: sent-confirm 0.4s ease-out;
+    }
+    @keyframes sent-confirm {
+        0% { opacity: 0.5; transform: translateY(4px); }
+        100% { opacity: 1; transform: translateY(0); }
+    }
+    .diagram-theme-toggle {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #334155;
+        border-radius: 6px;
+        padding: 2px;
+        cursor: pointer;
+    }
+    .diagram-theme-toggle button {
+        background: transparent;
+        border: none;
+        color: #94a3b8;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .diagram-theme-toggle button.active {
+        background: #1e293b;
+        color: #e2e8f0;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+    .diagram-theme-toggle button:hover:not(.active) {
+        color: #e2e8f0;
+    }
+    .theme-icon {
+        font-size: 0.8rem;
+    }
+    /* Selected node highlight */
+    .node-selected > rect,
+    .node-selected > polygon,
+    .node-selected > circle,
+    .node-selected > ellipse {
+        stroke: #f59e0b !important;
+        stroke-width: 3px !important;
+        filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.5));
+    }
+    .node-selected {
+        cursor: pointer;
+    }
+    .selected-elements-bar {
+        padding: 6px 16px;
+        font-size: 0.75rem;
+        color: #fbbf24;
+        border-bottom: 1px solid #334155;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    .selected-elements-bar .sel-chip {
+        background: #422006;
+        color: #fbbf24;
+        padding: 1px 8px;
+        border-radius: 10px;
+        font-size: 0.65rem;
+        font-weight: 600;
+    }
+    .selected-elements-bar .sel-clear {
+        background: none;
+        border: 1px solid #854d0e;
+        color: #fbbf24;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 0.6rem;
+        cursor: pointer;
+        margin-left: auto;
+    }
+    .selected-elements-bar .sel-clear:hover {
+        background: #854d0e;
+    }
+    .diagram-expand-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 4px;
+        background: #334155;
+        color: #e2e8f0;
+        border: 1px solid #475569;
+        cursor: pointer;
+        font-size: 0.8rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+        text-decoration: none;
+    }
+    .diagram-expand-btn:hover {
+        opacity: 1;
+        background: #475569;
+        color: #e2e8f0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="mb-6">
+    <div class="flex items-center gap-3 mb-2">
+        <a href="/" class="text-gray-400 hover:text-gray-300">&larr; Dashboard</a>
+        <span class="text-gray-600">/</span>
+        <a href="/project/{{ project.id }}" class="text-gray-400 hover:text-gray-300">{{ project.name }}</a>
+        <span class="text-gray-600">/</span>
+        <h1 class="text-2xl font-bold">{{ feature_name }}</h1>
+        <span class="text-gray-500 text-sm ml-2">Architecture</span>
+    </div>
+    {% if manifest %}
+    <p class="text-gray-400 text-sm">
+        {{ manifest.diagrams|length }} diagram{{ 's' if manifest.diagrams|length != 1 else '' }}
+        {% set tdd_count = manifest.diagrams|selectattr('category', 'equalto', 'tdd')|list|length %}
+        {% if tdd_count > 0 %}
+        ({{ tdd_count }} TDD)
+        {% endif %}
+        &mdash; click a diagram to attach it to chat
+    </p>
+    {% endif %}
+</div>
+
+{% if not manifest or not manifest.diagrams %}
+<div class="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center">
+    <p class="text-gray-400">No architecture diagrams found.</p>
+    <p class="text-gray-500 text-sm mt-2">Run <code class="text-green-400">/vista:plan {{ feature_name }}</code> to generate architecture diagrams.</p>
+</div>
+{% else %}
+
+<!-- Diagram Grid -->
+<div class="space-y-6" id="diagram-grid">
+    {% for diagram in manifest.diagrams %}
+    <div class="diagram-card {{ 'tdd' if diagram.category == 'tdd' else '' }}"
+         data-diagram-file="{{ diagram.file }}"
+         onclick="toggleContext('{{ diagram.file }}', {{ loop.index }})">
+        <div class="diagram-header">
+            <div class="flex items-center gap-2 flex-1 min-w-0">
+                <span class="font-semibold text-sm truncate">{{ diagram.name }}</span>
+                <span class="badge {{ 'badge-tdd' if diagram.category == 'tdd' else 'badge-arch' }}">
+                    {{ diagram.category or 'architecture' }}
+                </span>
+                {% if diagram.description %}
+                <span class="text-gray-500 text-xs truncate hidden sm:inline">{{ diagram.description }}</span>
+                {% endif %}
+            </div>
+            <div class="flex items-center gap-2">
+                {% if diagram.type == 'markdown' %}
+                <button class="md-edit-btn" data-edit-idx="{{ loop.index }}" onclick="event.stopPropagation(); toggleMarkdownEdit({{ loop.index }})" title="Edit markdown">&#9998;</button>
+                {% endif %}
+                <div class="diagram-theme-toggle" id="theme-toggle-{{ loop.index }}" onclick="event.stopPropagation()">
+                    <button class="active" data-theme="dark" onclick="setDiagramTheme({{ loop.index }}, 'dark')">
+                        <span class="theme-icon">&#9790;</span>
+                    </button>
+                    <button data-theme="light" onclick="setDiagramTheme({{ loop.index }}, 'light')">
+                        <span class="theme-icon">&#9788;</span>
+                    </button>
+                </div>
+                <span class="attach-indicator off" id="ctx-{{ loop.index }}">click to attach</span>
+            </div>
+        </div>
+        <div class="diagram-body" onclick="event.stopPropagation()">
+            <div class="diagram-viewport" id="viewport-{{ loop.index }}">
+                <div class="mermaid" id="mermaid-{{ loop.index }}">
+                    Loading...
+                </div>
+            </div>
+            <div class="diagram-zoom-controls">
+                <button onclick="zoomDiagram({{ loop.index }}, -0.2)" title="Zoom out">&minus;</button>
+                <button onclick="resetZoom({{ loop.index }})" title="Reset zoom">1:1</button>
+                <button onclick="zoomDiagram({{ loop.index }}, 0.2)" title="Zoom in">+</button>
+                <a class="diagram-expand-btn"
+                   href="/project/{{ project.id }}/arch/{{ feature_name }}/diagram/{{ diagram.file }}"
+                   target="_blank"
+                   title="Open full-page view">&#x26F6;</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Chat Toggle Button -->
+<button class="chat-toggle" id="chat-fab" onclick="toggleChat()" title="Open AI Chat">
+    &#x1f4ac;
+</button>
+
+<!-- Chat Panel -->
+<div class="chat-panel" id="chat-panel">
+    <!-- Header -->
+    <div class="chat-header">
+        <div class="chat-header-left">
+            <button class="chat-header-dropdown" onclick="toggleSessionPopup()">
+                <span id="current-session-name">New AI chat</span>
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+        </div>
+        <div class="chat-header-actions">
+            <div class="window-size-controls">
+                <button class="size-btn" onclick="setWindowHeight(40)" title="40% height">S</button>
+                <button class="size-btn active" onclick="setWindowHeight(60)" title="60% height">M</button>
+                <button class="size-btn" onclick="setWindowHeight(90)" title="90% height">L</button>
+            </div>
+            <button class="chat-header-btn lock-btn locked" id="lock-btn" onclick="toggleLock()" title="Unlock window">
+                <svg class="lock-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="10" height="7" rx="1"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/></svg>
+                <svg class="unlock-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="10" height="7" rx="1"/><path d="M5 7V5a3 3 0 0 1 6 0"/></svg>
+            </button>
+            <button class="chat-header-btn" onclick="createNewSession()" title="New session">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+            </button>
+            <button class="chat-header-btn" onclick="toggleChat()" title="Close">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Session Popup -->
+    <div class="session-popup" id="session-popup">
+        <div class="session-popup-header">
+            <span class="session-popup-title">Chat Sessions</span>
+            <button class="session-new-btn" onclick="createNewSession(); toggleSessionPopup();">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+                New
+            </button>
+        </div>
+        <div class="session-list" id="session-list">
+            <!-- Sessions injected here -->
+        </div>
+    </div>
+
+    <!-- Provider / Model Config -->
+    <div class="chat-config-bar">
+        {% if providers|length > 1 %}
+        <select id="chat-provider" class="chat-config-select" onchange="onProviderChange()">
+            {% for p in providers %}
+            <option value="{{ p.name }}">{{ p.display_name }}</option>
+            {% endfor %}
+        </select>
+        {% else %}
+        <input type="hidden" id="chat-provider" value="{{ providers[0].name if providers else 'claude' }}">
+        {% endif %}
+        <select id="chat-model" class="chat-config-select">
+            <option disabled selected>Loading models...</option>
+        </select>
+    </div>
+
+    <!-- Service Status -->
+    <div class="service-status-bar">
+        <div class="service-indicator">
+            <span class="service-dot" id="status-companion"></span>
+            <span>Claude</span>
+        </div>
+        <div class="service-indicator">
+            <span class="service-dot" id="status-opencode"></span>
+            <span>OpenCode</span>
+        </div>
+    </div>
+
+    <!-- Attached Context & Selected Elements - Combined compact bar -->
+    <div class="attached-context-bar" id="attached-context" style="display: none;">
+        <span class="attached-context-label">Attached:</span>
+        <div class="attached-context-list" id="attached-list"></div>
+    </div>
+
+    <div class="selected-elements-bar" id="selected-elements-bar" style="display: none;">
+        <span class="selected-elements-label">Focus:</span>
+        <div class="selected-elements-list" id="selected-elements-list"></div>
+        <button class="selected-clear-btn" onclick="clearAllSelections()">Clear</button>
+    </div>
+
+    <!-- Messages area -->
+    <div class="chat-messages" id="chat-messages">
+        <!-- Welcome State -->
+        <div class="chat-welcome" id="chat-welcome">
+            <div class="chat-welcome-avatar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3c-4.5 0-8 3.5-8 8 0 2.5 1.5 4.5 3 6l-1 4 4-1c1.5.5 3 .5 4.5.5 4.5 0 8-3.5 8-8s-3.5-8-8-8z"/>
+                    <path d="M12 8v4M12 16h.01"/>
+                </svg>
+            </div>
+            <div class="chat-welcome-title">How can I help you today?</div>
+            <div class="chat-suggestions">
+                <div class="chat-suggestion" onclick="setInput('Review the architecture diagrams for improvements')">
+                    <svg class="chat-suggestion-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M8 1v14M1 8h14"/>
+                    </svg>
+                    <span class="chat-suggestion-text">Review architecture diagrams</span>
+                </div>
+                <div class="chat-suggestion" onclick="setInput('Suggest improvements to the data flow')">
+                    <svg class="chat-suggestion-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M2 8l4-4 4 4 4-4M2 12l4-4 4 4 4-4"/>
+                    </svg>
+                    <span class="chat-suggestion-text">Suggest data flow improvements</span>
+                </div>
+                <div class="chat-suggestion" onclick="setInput('What are the key components in these diagrams?')">
+                    <svg class="chat-suggestion-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="8" cy="8" r="6"/>
+                        <path d="M8 5v3l2 2"/>
+                    </svg>
+                    <span class="chat-suggestion-text">Explain key components</span>
+                </div>
+                <div class="chat-suggestion" onclick="setInput('Are there any missing connections in the architecture?')">
+                    <svg class="chat-suggestion-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 8h8M8 4v8"/>
+                    </svg>
+                    <span class="chat-suggestion-text">Find missing connections</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input Container -->
+    <div class="chat-input-container">
+        <div class="chat-input-wrapper">
+            <div class="chat-input-context" id="input-context" style="display: none;">
+                <span class="chat-context-badge">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M2 4h12M2 8h12M2 12h12"/>
+                    </svg>
+                    <span id="context-count">0 diagrams attached</span>
+                </span>
+            </div>
+            <div class="chat-input-area">
+                <textarea id="chat-input" rows="1" placeholder="Ask about the architecture..." disabled></textarea>
+                <div class="chat-input-actions">
+                    <button class="chat-input-btn" id="cancel-btn" onclick="cancelChat()" style="display: none;" title="Cancel">
+                        <svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+                    </button>
+                    <button class="chat-send-btn" id="chat-send-btn" onclick="sendChat()" disabled title="Send">
+                        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 8l12-6v12L2 8z"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const PROJECT_ID = '{{ project.id }}';
+const FEATURE_NAME = '{{ feature_name }}';
+const DIAGRAMS = {{ manifest.diagrams | tojson if manifest and manifest.diagrams else '[]' }};
+const PROVIDERS = {{ providers | tojson }};
+const PLANTUML_SERVER_URL = {{ plantuml_url | tojson }};
+
+// --- State ---
+const attachedDiagrams = new Set();
+const selectedElements = new Map(); // Map<filename, Set<nodeId>>
+const diagramContents = {};
+const viewportState = {};
+let currentSessionId = null;
+let eventSource = null;
+let isStreaming = false;
+let streamingMsgEl = null;
+let streamingText = '';
+let mermaidCounter = DIAGRAMS.length + 100; // for dynamic re-renders
+
+// --- Mermaid init ---
+mermaid.initialize({
+    startOnLoad: false,
+    theme: 'dark',
+    themeVariables: {
+        darkMode: true,
+        background: '#0f172a',
+        primaryColor: '#1e3a5f',
+        primaryTextColor: '#e2e8f0',
+        primaryBorderColor: '#475569',
+        lineColor: '#94a3b8',
+        secondaryColor: '#1a2332',
+        tertiaryColor: '#0f172a',
+        fontSize: '14px',
+    }
+});
+
+const lightThemeVariables = {
+    background: '#ffffff',
+    primaryColor: '#dbeafe',
+    primaryTextColor: '#1e293b',
+    primaryBorderColor: '#94a3b8',
+    lineColor: '#475569',
+    secondaryColor: '#f8fafc',
+    tertiaryColor: '#f1f5f9',
+    fontSize: '14px',
+};
+
+const darkThemeVariables = {
+    darkMode: true,
+    background: '#0f172a',
+    primaryColor: '#1e3a5f',
+    primaryTextColor: '#e2e8f0',
+    primaryBorderColor: '#475569',
+    lineColor: '#94a3b8',
+    secondaryColor: '#1a2332',
+    tertiaryColor: '#0f172a',
+    fontSize: '14px',
+};
+
+// --- Marked config for assistant messages ---
+marked.setOptions({ breaks: true, gfm: true });
+
+// =========================================================================
+// Diagram loading & rendering
+// =========================================================================
+
+async function loadDiagrams() {
+    for (let i = 0; i < DIAGRAMS.length; i++) {
+        const diagram = DIAGRAMS[i];
+        const el = document.getElementById(`mermaid-${i + 1}`);
+        if (!el) continue;
+        try {
+            const resp = await fetch(`/api/projects/${PROJECT_ID}/features/${FEATURE_NAME}/arch/${diagram.file}`);
+            if (!resp.ok) throw new Error('Failed to load');
+            const content = await resp.text();
+            diagramContents[diagram.file] = content;
+            await renderDiagramContent(el, diagram.file, content, i + 1, diagram.type);
+            initViewport(i + 1);
+        } catch (err) {
+            el.innerHTML = `<span class="text-red-400 text-sm">Failed to load ${diagram.file}</span>`;
+        }
+    }
+}
+
+// --- Renderer Map ---
+const RENDERERS = {
+    mermaid:  renderMermaid,
+    plantuml: renderPlantUML,
+    d2:       renderD2,
+    graphviz: renderGraphviz,
+    drawio:   renderDrawio,
+    markdown: renderMarkdown,
+};
+
+async function renderDiagramContent(el, filename, content, idx, diagramType) {
+    // Infer type from extension if not provided
+    if (!diagramType) {
+        const ext = filename.split('.').pop();
+        const EXT_MAP = { mmd: 'mermaid', puml: 'plantuml', d2: 'd2', dot: 'graphviz', drawio: 'drawio', md: 'markdown' };
+        diagramType = EXT_MAP[ext] || 'mermaid';
+    }
+    const renderer = RENDERERS[diagramType];
+    if (renderer) {
+        return renderer(el, content, idx, filename);
+    }
+    // Unknown type fallback
+    el.innerHTML = `<pre class="text-gray-400 text-xs whitespace-pre-wrap">${escapeHtml(content)}</pre>`;
+}
+
+// --- Mermaid Renderer ---
+async function renderMermaid(el, content, idx, filename) {
+    try {
+        const id = `mermaid-svg-${idx}-${++mermaidCounter}`;
+        const { svg } = await mermaid.render(id, content);
+        el.innerHTML = svg;
+        // Add click handlers on nodes for element selection
+        el.querySelectorAll('.node').forEach(node => {
+            node.style.cursor = 'pointer';
+            node.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const nodeId = extractNodeId(node.id, node);
+                if (nodeId) toggleElementSelection(filename, nodeId, node);
+            });
+        });
+        // Re-apply any existing selections
+        reapplySelections(el, filename);
+    } catch (e) {
+        el.innerHTML = `<pre class="text-yellow-400 text-xs whitespace-pre-wrap">Mermaid parse error:\n${e.message || e}\n\n${content}</pre>`;
+    }
+}
+
+// --- PlantUML Renderer ---
+async function renderPlantUML(el, content, idx, filename) {
+    try {
+        if (typeof plantumlEncoder === 'undefined') {
+            throw new Error('PlantUML encoder not loaded');
+        }
+        const encoded = plantumlEncoder.encode(content);
+        const svgUrl = `${PLANTUML_SERVER_URL}/svg/${encoded}`;
+        const resp = await fetch(svgUrl);
+        if (!resp.ok) throw new Error(`PlantUML server error: ${resp.status}`);
+        const svg = await resp.text();
+        el.innerHTML = svg;
+    } catch (err) {
+        el.innerHTML = `<div class="diagram-error">
+            <p class="text-yellow-400 text-sm mb-2">PlantUML render error: ${escapeHtml(err.message)}</p>
+            <pre class="text-gray-400 text-xs whitespace-pre-wrap">${escapeHtml(content)}</pre>
+        </div>`;
+    }
+}
+
+// --- D2 Renderer (hybrid: Kroki -> raw source) ---
+async function renderD2(el, content, idx, filename) {
+    // 1. Try Kroki server (configured or public)
+    const krokiUrl = window.KROKI_SERVER_URL || 'https://kroki.io';
+    try {
+        const resp = await fetch(`${krokiUrl}/d2/svg`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: content,
+        });
+        if (resp.ok) {
+            el.innerHTML = await resp.text();
+            return;
+        }
+    } catch (_) { /* fall through to raw source */ }
+
+    // 2. Raw source fallback
+    el.innerHTML = `<div class="diagram-raw-source">
+        <p class="text-blue-400 text-sm mb-2">D2 diagram (raw source — <a href="https://kroki.io" target="_blank" class="underline">Kroki</a> unavailable)</p>
+        <pre class="text-gray-300 text-xs whitespace-pre-wrap">${escapeHtml(content)}</pre>
+    </div>`;
+}
+
+// --- Graphviz Renderer (lazy-loaded @viz-js/viz WASM) ---
+let vizInstance = null;
+
+async function loadViz() {
+    if (vizInstance) return vizInstance;
+    if (!window.Viz) {
+        await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/@viz-js/viz@3.11.0/lib/viz-standalone.js';
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('Failed to load Graphviz WASM'));
+            document.head.appendChild(script);
+        });
+    }
+    vizInstance = await Viz.instance();
+    return vizInstance;
+}
+
+async function renderGraphviz(el, content, idx, filename) {
+    try {
+        const viz = await loadViz();
+        const svg = viz.renderSVGElement(content);
+        el.innerHTML = '';
+        el.appendChild(svg);
+    } catch (err) {
+        el.innerHTML = `<div class="diagram-error">
+            <p class="text-yellow-400 text-sm mb-2">Graphviz render error: ${escapeHtml(err.message)}</p>
+            <pre class="text-gray-400 text-xs whitespace-pre-wrap">${escapeHtml(content)}</pre>
+        </div>`;
+    }
+}
+
+// --- Draw.io Renderer (embed via postMessage API) ---
+function renderDrawio(el, content, idx, filename) {
+    try {
+        const iframe = document.createElement('iframe');
+        iframe.style.width = '100%';
+        iframe.style.height = '500px';
+        iframe.style.border = 'none';
+        iframe.style.borderRadius = '8px';
+        // Embed mode: viewer waits for XML via postMessage
+        iframe.src = 'https://viewer.diagrams.net/?embed=1&spin=1&proto=json&nav=1';
+        iframe.addEventListener('load', function onLoad() {
+            const handler = (evt) => {
+                if (evt.source !== iframe.contentWindow) return;
+                try {
+                    const msg = JSON.parse(evt.data);
+                    if (msg.event === 'init') {
+                        iframe.contentWindow.postMessage(JSON.stringify({
+                            action: 'load',
+                            xml: content,
+                        }), '*');
+                        window.removeEventListener('message', handler);
+                    }
+                } catch (_) {}
+            };
+            window.addEventListener('message', handler);
+        });
+        el.innerHTML = '';
+        el.appendChild(iframe);
+    } catch (err) {
+        el.innerHTML = `<div class="diagram-error">
+            <p class="text-yellow-400 text-sm mb-2">Draw.io render error: ${escapeHtml(err.message)}</p>
+            <pre class="text-gray-400 text-xs whitespace-pre-wrap">${escapeHtml(content)}</pre>
+        </div>`;
+    }
+}
+
+// --- Markdown Renderer ---
+function renderMarkdown(el, content, idx, filename) {
+    try {
+        const html = marked.parse(content);
+        el.innerHTML = `<div class="markdown-content">${html}</div>`;
+        // Store original content for edit mode
+        el.dataset.rawContent = content;
+        el.dataset.filename = filename;
+        el.dataset.idx = idx;
+    } catch (err) {
+        el.innerHTML = `<pre class="text-gray-400 text-xs whitespace-pre-wrap">${escapeHtml(content)}</pre>`;
+    }
+}
+
+function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+loadDiagrams();
+
+// =========================================================================
+// Markdown Inline Editor
+// =========================================================================
+
+const markdownEditState = {}; // idx -> { editing: bool, saving: bool, originalContent: string }
+
+function toggleMarkdownEdit(idx) {
+    const state = markdownEditState[idx] || { editing: false };
+    if (state.editing) {
+        cancelMarkdownEdit(idx);
+    } else {
+        enterMarkdownEdit(idx);
+    }
+}
+
+function enterMarkdownEdit(idx) {
+    const el = document.getElementById(`mermaid-${idx}`);
+    if (!el) return;
+    const diagram = DIAGRAMS[idx - 1]; // DIAGRAMS is 0-indexed, idx is 1-indexed
+    if (!diagram) return;
+    const content = el.dataset.rawContent || diagramContents[diagram.file] || '';
+
+    markdownEditState[idx] = { editing: true, saving: false, originalContent: content };
+
+    el.innerHTML = `
+        <div class="md-editor-container">
+            <div class="md-editor-toolbar">
+                <button class="md-save-btn" onclick="saveMarkdown(${idx})">&#10003; Save</button>
+                <button class="md-cancel-btn" onclick="cancelMarkdownEdit(${idx})">&#10005; Cancel</button>
+                <span class="md-save-indicator" id="md-indicator-${idx}"></span>
+            </div>
+            <textarea class="md-editor" id="md-textarea-${idx}" spellcheck="false">${escapeHtml(content)}</textarea>
+        </div>
+    `;
+
+    const textarea = document.getElementById(`md-textarea-${idx}`);
+    if (textarea) {
+        textarea.focus();
+        autoResizeTextarea(textarea);
+        textarea.addEventListener('input', () => autoResizeTextarea(textarea));
+    }
+
+    updateEditButton(idx, true);
+}
+
+function cancelMarkdownEdit(idx) {
+    const state = markdownEditState[idx];
+    if (!state) return;
+
+    const el = document.getElementById(`mermaid-${idx}`);
+    const diagram = DIAGRAMS[idx - 1];
+    if (el && diagram) {
+        renderMarkdown(el, state.originalContent, idx, diagram.file);
+    }
+
+    markdownEditState[idx] = { editing: false };
+    updateEditButton(idx, false);
+}
+
+async function saveMarkdown(idx) {
+    const state = markdownEditState[idx];
+    if (!state || state.saving) return;
+
+    const textarea = document.getElementById(`md-textarea-${idx}`);
+    const diagram = DIAGRAMS[idx - 1];
+    if (!textarea || !diagram) return;
+
+    const newContent = textarea.value;
+    const filename = diagram.file;
+    const indicator = document.getElementById(`md-indicator-${idx}`);
+
+    state.saving = true;
+    if (indicator) {
+        indicator.textContent = 'Saving...';
+        indicator.className = 'md-save-indicator saving';
+    }
+
+    try {
+        const resp = await fetch(
+            `/api/projects/${PROJECT_ID}/features/${FEATURE_NAME}/arch/${filename}`,
+            {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: newContent }),
+            }
+        );
+
+        if (!resp.ok) throw new Error(`Save failed: ${resp.status}`);
+
+        if (indicator) {
+            indicator.textContent = 'Saved!';
+            indicator.className = 'md-save-indicator saved';
+        }
+
+        // Update stored content
+        diagramContents[filename] = newContent;
+
+        // Return to view mode after brief success indicator
+        setTimeout(() => {
+            const el = document.getElementById(`mermaid-${idx}`);
+            if (el) renderMarkdown(el, newContent, idx, filename);
+            markdownEditState[idx] = { editing: false };
+            updateEditButton(idx, false);
+        }, 800);
+
+    } catch (err) {
+        if (indicator) {
+            indicator.textContent = `Error: ${err.message}`;
+            indicator.className = 'md-save-indicator error';
+        }
+        state.saving = false;
+    }
+}
+
+function autoResizeTextarea(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.max(200, textarea.scrollHeight) + 'px';
+}
+
+function updateEditButton(idx, isEditing) {
+    const btn = document.querySelector(`[data-edit-idx="${idx}"]`);
+    if (btn) {
+        btn.innerHTML = isEditing ? '&#10005;' : '&#9998;';
+        btn.title = isEditing ? 'Cancel editing' : 'Edit markdown';
+    }
+}
+
+// Keyboard shortcuts for markdown editor: Ctrl+S to save, Escape to cancel
+document.addEventListener('keydown', (e) => {
+    for (const [idx, state] of Object.entries(markdownEditState)) {
+        if (state.editing) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                saveMarkdown(parseInt(idx));
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelMarkdownEdit(parseInt(idx));
+            }
+        }
+    }
+});
+
+// =========================================================================
+// Pan & Zoom
+// =========================================================================
+
+function initViewport(idx) {
+    const vp = document.getElementById(`viewport-${idx}`);
+    if (!vp) return;
+    viewportState[idx] = { scale: 1, panX: 0, panY: 0, dragging: false, startX: 0, startY: 0 };
+    vp.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        zoomDiagram(idx, delta);
+    }, { passive: false });
+    vp.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        const st = viewportState[idx];
+        st.dragging = true;
+        st.startX = e.clientX - st.panX;
+        st.startY = e.clientY - st.panY;
+        vp.style.cursor = 'grabbing';
+    });
+    vp.addEventListener('mousemove', (e) => {
+        const st = viewportState[idx];
+        if (!st.dragging) return;
+        st.panX = e.clientX - st.startX;
+        st.panY = e.clientY - st.startY;
+        applyTransform(idx);
+    });
+    const stopDrag = () => {
+        const st = viewportState[idx];
+        if (st) st.dragging = false;
+        vp.style.cursor = 'grab';
+    };
+    vp.addEventListener('mouseup', stopDrag);
+    vp.addEventListener('mouseleave', stopDrag);
+}
+
+function applyTransform(idx) {
+    const vp = document.getElementById(`viewport-${idx}`);
+    const st = viewportState[idx];
+    if (!vp || !st) return;
+    vp.style.transform = `translate(${st.panX}px, ${st.panY}px) scale(${st.scale})`;
+}
+
+function zoomDiagram(idx, delta) {
+    const st = viewportState[idx];
+    if (!st) return;
+    st.scale = Math.max(0.3, Math.min(3, st.scale + delta));
+    applyTransform(idx);
+}
+
+function resetZoom(idx) {
+    const st = viewportState[idx];
+    if (!st) return;
+    st.scale = 1; st.panX = 0; st.panY = 0;
+    applyTransform(idx);
+}
+
+// =========================================================================
+// Chat panel toggle
+// =========================================================================
+
+function toggleChat() {
+    const panel = document.getElementById('chat-panel');
+    const fab = document.getElementById('chat-fab');
+    panel.classList.toggle('open');
+    const isOpen = panel.classList.contains('open');
+    fab.classList.toggle('hidden-fab', isOpen);
+    if (isOpen && !currentSessionId) {
+        loadSessions();
+    }
+    if (isOpen && !panel.dataset.dragInitialized) {
+        initDragPanel();
+        panel.dataset.dragInitialized = 'true';
+    }
+}
+
+// =========================================================================
+// Draggable Panel
+// =========================================================================
+
+let isPanelLocked = true;
+let currentHeightPercentage = 60; // Default to 60%
+
+function initDragPanel() {
+    const panel = document.getElementById('chat-panel');
+    const header = panel.querySelector('.chat-header');
+    
+    let isDragging = false;
+    let startX, startY, initialLeft, initialTop;
+    
+    header.addEventListener('mousedown', function(e) {
+        // Don't drag if locked or clicking on buttons
+        if (isPanelLocked || e.target.closest('button') || e.target.closest('.chat-header-dropdown')) {
+            return;
+        }
+        
+        isDragging = true;
+        panel.classList.add('dragging');
+        
+        // Get mouse position relative to the panel
+        const rect = panel.getBoundingClientRect();
+        startX = e.clientX;
+        startY = e.clientY;
+        initialLeft = rect.left;
+        initialTop = rect.top;
+        
+        // Remove right/bottom positioning and set explicit left/top
+        panel.style.right = 'auto';
+        panel.style.bottom = 'auto';
+        panel.style.left = initialLeft + 'px';
+        panel.style.top = initialTop + 'px';
+        
+        e.preventDefault();
+    });
+    
+    document.addEventListener('mousemove', function(e) {
+        if (!isDragging) return;
+        
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+        
+        let newLeft = initialLeft + deltaX;
+        let newTop = initialTop + deltaY;
+        
+        // Constrain to viewport
+        const panelRect = panel.getBoundingClientRect();
+        const maxLeft = window.innerWidth - panelRect.width;
+        const maxTop = window.innerHeight - panelRect.height;
+        
+        newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+        newTop = Math.max(0, Math.min(newTop, maxTop));
+        
+        panel.style.left = newLeft + 'px';
+        panel.style.top = newTop + 'px';
+    });
+    
+    document.addEventListener('mouseup', function() {
+        if (isDragging) {
+            isDragging = false;
+            panel.classList.remove('dragging');
+        }
+    });
+}
+
+// =========================================================================
+// Window Resize Handler
+// =========================================================================
+
+window.addEventListener('resize', function() {
+    const panel = document.getElementById('chat-panel');
+    if (!panel || !panel.classList.contains('open')) return;
+    
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const panelRect = panel.getBoundingClientRect();
+    
+    // Auto-scale height to maintain percentage of viewport
+    const newHeight = Math.floor((viewportHeight * currentHeightPercentage) / 100);
+    const minHeight = 400;
+    const maxHeight = viewportHeight - 100;
+    const finalHeight = Math.max(minHeight, Math.min(newHeight, maxHeight));
+    
+    panel.style.height = finalHeight + 'px';
+    panel.style.maxHeight = finalHeight + 'px';
+    
+    // Ensure panel doesn't exceed viewport width
+    const maxWidth = viewportWidth - 48;
+    if (parseInt(panel.style.width) > maxWidth) {
+        panel.style.width = maxWidth + 'px';
+    }
+    
+    if (isPanelLocked) {
+        // When locked, keep it at bottom-right
+        panel.style.left = 'auto';
+        panel.style.top = 'auto';
+        panel.style.right = '24px';
+        panel.style.bottom = '24px';
+    } else {
+        // When unlocked, ensure panel stays within viewport bounds
+        let currentLeft = parseInt(panel.style.left) || panelRect.left;
+        let currentTop = parseInt(panel.style.top) || panelRect.top;
+        
+        const maxLeft = viewportWidth - panelRect.width;
+        const maxTop = viewportHeight - panelRect.height;
+        
+        // Constrain to viewport
+        if (currentLeft < 0) currentLeft = 0;
+        if (currentTop < 0) currentTop = 0;
+        if (currentLeft > maxLeft) currentLeft = maxLeft;
+        if (currentTop > maxTop) currentTop = maxTop;
+        
+        panel.style.left = currentLeft + 'px';
+        panel.style.top = currentTop + 'px';
+        panel.style.right = 'auto';
+        panel.style.bottom = 'auto';
+    }
+});
+
+function toggleLock() {
+    const panel = document.getElementById('chat-panel');
+    const lockBtn = document.getElementById('lock-btn');
+    
+    isPanelLocked = !isPanelLocked;
+    
+    if (isPanelLocked) {
+        panel.classList.add('locked');
+        lockBtn.classList.add('locked');
+        lockBtn.title = 'Unlock window';
+        
+        // Snap back to bottom-right
+        panel.style.left = 'auto';
+        panel.style.top = 'auto';
+        panel.style.right = '24px';
+        panel.style.bottom = '24px';
+    } else {
+        panel.classList.remove('locked');
+        lockBtn.classList.remove('locked');
+        lockBtn.title = 'Lock window';
+    }
+}
+
+// =========================================================================
+// Window Size Controls
+// =========================================================================
+
+function setWindowHeight(percentage) {
+    currentHeightPercentage = percentage;
+    const panel = document.getElementById('chat-panel');
+    const viewportHeight = window.innerHeight;
+    const newHeight = Math.floor((viewportHeight * percentage) / 100);
+    
+    // Set minimum and maximum constraints
+    const minHeight = 400;
+    const maxHeight = viewportHeight - 100;
+    const finalHeight = Math.max(minHeight, Math.min(newHeight, maxHeight));
+    
+    panel.style.height = finalHeight + 'px';
+    panel.style.maxHeight = finalHeight + 'px';
+    panel.style.minHeight = 'auto';
+    
+    // If locked, ensure it stays positioned at bottom-right
+    if (isPanelLocked) {
+        panel.style.left = 'auto';
+        panel.style.top = 'auto';
+        panel.style.right = '24px';
+        panel.style.bottom = '24px';
+    }
+    
+    // Update active state of size buttons
+    document.querySelectorAll('.size-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (parseInt(btn.textContent) === percentage || 
+            (btn.textContent === 'S' && percentage === 40) ||
+            (btn.textContent === 'M' && percentage === 60) ||
+            (btn.textContent === 'L' && percentage === 90)) {
+            btn.classList.add('active');
+        }
+    });
+}
+
+// =========================================================================
+// Attach/detach diagram context
+// =========================================================================
+
+function toggleContext(filename, idx) {
+    if (attachedDiagrams.has(filename)) {
+        attachedDiagrams.delete(filename);
+    } else {
+        attachedDiagrams.add(filename);
+    }
+    updateAttachedUI();
+}
+
+function updateAttachedUI() {
+    document.querySelectorAll('.diagram-card').forEach((card, i) => {
+        const file = DIAGRAMS[i]?.file;
+        const indicator = document.getElementById(`ctx-${i + 1}`);
+        if (file && attachedDiagrams.has(file)) {
+            card.classList.add('attached');
+            if (indicator) { indicator.className = 'attach-indicator on'; indicator.textContent = 'attached'; }
+        } else {
+            card.classList.remove('attached');
+            if (indicator) { indicator.className = 'attach-indicator off'; indicator.textContent = 'click to attach'; }
+        }
+    });
+    
+    // Update new attached context bar
+    const container = document.getElementById('attached-context');
+    const list = document.getElementById('attached-list');
+    const inputContext = document.getElementById('input-context');
+    const contextCount = document.getElementById('context-count');
+    
+    if (attachedDiagrams.size > 0) {
+        if (container) container.style.display = 'flex';
+        if (list) {
+            list.innerHTML = [...attachedDiagrams].map(f => 
+                `<span class="attached-context-item">${escapeHtml(f)}</span>`
+            ).join('');
+        }
+        if (inputContext) inputContext.style.display = 'flex';
+        if (contextCount) contextCount.textContent = `${attachedDiagrams.size} diagram${attachedDiagrams.size !== 1 ? 's' : ''} attached`;
+    } else {
+        if (container) container.style.display = 'none';
+        if (inputContext) inputContext.style.display = 'none';
+    }
+}
+
+// =========================================================================
+// Element selection (node click)
+// =========================================================================
+
+function extractNodeId(svgId, node) {
+    // Mermaid v11 flowchart nodes: "flowchart-NodeId-0" or "flowchart-NodeId-123"
+    const flowMatch = svgId.match(/^flowchart-(.+?)-\d+$/);
+    if (flowMatch) return flowMatch[1];
+    // Other patterns: try splitting on hyphens and taking middle parts
+    const parts = svgId.split('-');
+    if (parts.length >= 2) return parts.slice(0, -1).join('-');
+    // Fallback: use text content of the node
+    const text = node.textContent?.trim();
+    return text || null;
+}
+
+function toggleElementSelection(filename, nodeId, svgElement) {
+    if (!selectedElements.has(filename)) {
+        selectedElements.set(filename, new Set());
+    }
+    const selected = selectedElements.get(filename);
+
+    if (selected.has(nodeId)) {
+        selected.delete(nodeId);
+        svgElement.classList.remove('node-selected');
+        // Clean up empty sets
+        if (selected.size === 0) selectedElements.delete(filename);
+    } else {
+        selected.add(nodeId);
+        svgElement.classList.add('node-selected');
+        // Auto-attach the diagram
+        if (!attachedDiagrams.has(filename)) {
+            attachedDiagrams.add(filename);
+            updateAttachedUI();
+        }
+    }
+    updateSelectedUI();
+}
+
+function getNodeConnections(filename, nodeId) {
+    const content = diagramContents[filename];
+    if (!content) return [];
+    const connections = [];
+    for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        // Skip directive/config lines, only match lines containing the nodeId
+        if (trimmed && trimmed.includes(nodeId) && /[-=.]+>|[-=.]+\|/.test(trimmed)) {
+            connections.push(trimmed);
+        }
+    }
+    return connections;
+}
+
+function reapplySelections(el, filename) {
+    const selected = selectedElements.get(filename);
+    if (!selected || selected.size === 0) return;
+    el.querySelectorAll('.node').forEach(node => {
+        const nodeId = extractNodeId(node.id, node);
+        if (nodeId && selected.has(nodeId)) {
+            node.classList.add('node-selected');
+        }
+    });
+}
+
+function updateSelectedUI() {
+    const bar = document.getElementById('selected-elements-bar');
+    const list = document.getElementById('selected-elements-list');
+    if (!bar || !list) return;
+
+    let totalSelected = 0;
+    let chips = '';
+    for (const [filename, nodes] of selectedElements) {
+        for (const nodeId of nodes) {
+            chips += `<span class="selected-chip" title="${escapeHtml(filename)}">${escapeHtml(nodeId)}</span>`;
+            totalSelected++;
+        }
+    }
+
+    if (totalSelected > 0) {
+        list.innerHTML = chips;
+        bar.style.display = 'flex';
+    } else {
+        bar.style.display = 'none';
+    }
+}
+
+function clearAllSelections() {
+    // Remove CSS classes from SVG nodes
+    for (const [filename, nodes] of selectedElements) {
+        const idx = DIAGRAMS.findIndex(d => d.file === filename);
+        if (idx === -1) continue;
+        const el = document.getElementById(`mermaid-${idx + 1}`);
+        if (el) {
+            el.querySelectorAll('.node-selected').forEach(n => n.classList.remove('node-selected'));
+        }
+    }
+    selectedElements.clear();
+    updateSelectedUI();
+}
+
+// =========================================================================
+// Provider & model loading
+// =========================================================================
+
+let _modelFetchId = 0;
+
+function renderModels(models) {
+    const select = document.getElementById('chat-model');
+    if (!select) return;
+    select.innerHTML = '';
+    models.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m; opt.textContent = m;
+        select.appendChild(opt);
+    });
+}
+
+async function fetchModels(providerName) {
+    const thisId = ++_modelFetchId;
+    const select = document.getElementById('chat-model');
+    if (select) select.innerHTML = '<option disabled selected>Loading models...</option>';
+    try {
+        const resp = await fetch(`/api/providers/${providerName}/models`);
+        if (thisId !== _modelFetchId) return;
+        if (!resp.ok) throw new Error('Failed');
+        const data = await resp.json();
+        if (thisId !== _modelFetchId) return;
+        if (data.error) {
+            if (select) select.innerHTML = '<option disabled selected>Timed out</option>';
+            return;
+        }
+        renderModels(data.models);
+    } catch {
+        if (thisId !== _modelFetchId) return;
+        if (select) select.innerHTML = '<option disabled selected>Failed</option>';
+    }
+}
+
+function getSelectedProvider() {
+    const sel = document.getElementById('chat-provider');
+    return sel ? sel.value : 'claude';
+}
+
+function onProviderChange() {
+    fetchModels(getSelectedProvider());
+}
+
+if (PROVIDERS.length > 0) fetchModels(PROVIDERS[0].name);
+
+// =========================================================================
+// Service Health Polling
+// =========================================================================
+
+let _lastServiceHealth = {};
+
+async function pollServiceHealth() {
+    try {
+        const resp = await fetch('/api/services/health');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const services = data.services || [];
+        _lastServiceHealth = {};
+        services.forEach(svc => {
+            _lastServiceHealth[svc.name] = svc;
+            // Update new status dots
+            const dotId = svc.name === 'companion' ? 'status-companion' : `status-${svc.name}`;
+            const dot = document.getElementById(dotId);
+            if (dot) {
+                dot.classList.toggle('online', svc.status === 'running');
+            }
+        });
+        updateProviderAvailability(services);
+    } catch (e) {
+        // Silently fail
+    }
+}
+
+function updateProviderAvailability(services) {
+    const sel = document.getElementById('chat-provider');
+    if (!sel || !sel.options) return;
+    for (const opt of sel.options) {
+        const svcName = opt.value === 'claude' ? 'companion' : opt.value;
+        const svc = services.find(s => s.name === svcName);
+        if (svc && svc.status !== 'running') {
+            opt.disabled = true;
+            opt.textContent = opt.textContent.replace(/ \(offline\)$/, '') + ' (offline)';
+        } else {
+            opt.disabled = false;
+            opt.textContent = opt.textContent.replace(/ \(offline\)$/, '');
+        }
+    }
+}
+
+// Poll on load and every 10s
+pollServiceHealth();
+setInterval(pollServiceHealth, 10000);
+
+// =========================================================================
+// Session Management
+// =========================================================================
+
+let _allSessions = [];
+
+async function loadSessions() {
+    try {
+        const resp = await fetch(`/api/projects/${PROJECT_ID}/chat/sessions?feature=${FEATURE_NAME}`);
+        const sessions = await resp.json();
+        _allSessions = sessions;
+        renderSessionList();
+        
+        // Auto-select most recent if available and no current session
+        if (sessions.length > 0 && !currentSessionId) {
+            await loadSession(sessions[0].id);
+        }
+    } catch (err) {
+        console.error('Failed to load sessions:', err);
+    }
+}
+
+function renderSessionList() {
+    const list = document.getElementById('session-list');
+    if (!list) return;
+    
+    if (_allSessions.length === 0) {
+        list.innerHTML = '<div style="padding: 20px; text-align: center; color: #737373; font-size: 0.875rem;">No sessions yet</div>';
+        return;
+    }
+    
+    list.innerHTML = _allSessions.map(s => {
+        const date = new Date(s.updated_at).toLocaleDateString();
+        const isActive = s.id === currentSessionId;
+        return `
+            <div class="session-item ${isActive ? 'active' : ''}" onclick="selectSession('${s.id}')">
+                <div class="session-item-info">
+                    <div class="session-item-name">${escapeHtml(s.name)}</div>
+                    <div class="session-item-meta">${s.message_count} messages · ${date}</div>
+                </div>
+                <button class="session-item-delete" onclick="event.stopPropagation(); deleteSession('${s.id}')" title="Delete">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+function toggleSessionPopup() {
+    const popup = document.getElementById('session-popup');
+    popup.classList.toggle('open');
+}
+
+async function selectSession(sessionId) {
+    toggleSessionPopup();
+    if (sessionId === currentSessionId) return;
+    await loadSession(sessionId);
+}
+
+function setInput(text) {
+    const input = document.getElementById('chat-input');
+    if (input) {
+        input.value = text;
+        input.focus();
+    }
+}
+
+// Legacy function - sessions are now selected via popup
+async function onSessionChange(sessionId) {
+    if (!sessionId) {
+        if (currentSessionId) {
+            fetch(`/api/projects/${PROJECT_ID}/chat/sessions/${currentSessionId}/cancel`, { method: 'POST' }).catch(() => {});
+        }
+        disconnectSSE();
+        currentSessionId = null;
+        setChatEnabled(false);
+        return;
+    }
+    await loadSession(sessionId);
+}
+
+async function loadSession(sessionId) {
+    try {
+        if (currentSessionId && currentSessionId !== sessionId) {
+            fetch(`/api/projects/${PROJECT_ID}/chat/sessions/${currentSessionId}/cancel`, { method: 'POST' }).catch(() => {});
+        }
+
+        const resp = await fetch(`/api/projects/${PROJECT_ID}/chat/sessions/${sessionId}`);
+        if (!resp.ok) throw new Error('Session not found');
+        const session = await resp.json();
+
+        currentSessionId = sessionId;
+
+        // Update header with session name
+        const sessionNameEl = document.getElementById('current-session-name');
+        if (sessionNameEl) sessionNameEl.textContent = session.name;
+
+        // Sync provider/model dropdowns to match the session
+        if (session.provider) {
+            const providerEl = document.getElementById('chat-provider');
+            if (providerEl && providerEl.tagName === 'SELECT') {
+                providerEl.value = session.provider;
+            }
+            // Fetch models for this provider, then select the session's model
+            await fetchModels(session.provider);
+            if (session.model) {
+                const modelEl = document.getElementById('chat-model');
+                if (modelEl) modelEl.value = session.model;
+            }
+        }
+
+        // Render messages
+        const container = document.getElementById('chat-messages');
+        // Hide welcome state, show messages
+        const welcome = document.getElementById('chat-welcome');
+        if (welcome) welcome.style.display = 'none';
+        
+        container.innerHTML = '';
+        session.messages.forEach(m => {
+            appendMessage(m.role, m.content, false);
+        });
+
+        setChatEnabled(true);
+        connectSSE(sessionId);
+        renderSessionList(); // Update active state
+    } catch (err) {
+        console.error('Failed to load session:', err);
+    }
+}
+
+async function createNewSession() {
+    const provider = getSelectedProvider();
+    const model = document.getElementById('chat-model').value;
+    if (!model) { alert('Select a model first'); return; }
+
+    try {
+        const resp = await fetch(`/api/projects/${PROJECT_ID}/chat/sessions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                feature_name: FEATURE_NAME,
+                provider: provider,
+                model: model,
+            }),
+        });
+        const session = await resp.json();
+
+        // Reload sessions and select the new one
+        await loadSessions();
+        await loadSession(session.id);
+    } catch (err) {
+        console.error('Failed to create session:', err);
+    }
+}
+
+async function deleteSession(sessionId) {
+    if (!confirm('Delete this chat session?')) return;
+    try {
+        await fetch(`/api/projects/${PROJECT_ID}/chat/sessions/${sessionId}`, { method: 'DELETE' });
+        
+        if (currentSessionId === sessionId) {
+            disconnectSSE();
+            currentSessionId = null;
+            setChatEnabled(false);
+            // Show welcome state again
+            const container = document.getElementById('chat-messages');
+            const welcome = document.getElementById('chat-welcome');
+            if (container) container.innerHTML = '';
+            if (welcome) welcome.style.display = 'flex';
+            // Update header
+            const sessionNameEl = document.getElementById('current-session-name');
+            if (sessionNameEl) sessionNameEl.textContent = 'New AI chat';
+        }
+        
+        await loadSessions();
+    } catch (err) {
+        console.error('Failed to delete session:', err);
+    }
+}
+
+// Legacy function for backwards compatibility
+async function deleteCurrentSession() {
+    if (!currentSessionId) return;
+    await deleteSession(currentSessionId);
+}
+
+function setChatEnabled(enabled) {
+    const input = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('chat-send-btn');
+    if (input) input.disabled = !enabled;
+    if (sendBtn) sendBtn.disabled = !enabled;
+}
+
+// =========================================================================
+// SSE Connection (chat tokens + diagram changes)
+// =========================================================================
+
+function connectSSE(sessionId) {
+    disconnectSSE();
+    const url = `/api/projects/${PROJECT_ID}/chat/sessions/${sessionId}/stream`;
+    eventSource = new EventSource(url);
+
+    eventSource.addEventListener('token', (e) => {
+        const data = JSON.parse(e.data);
+        appendStreamToken(data.text);
+    });
+
+    eventSource.addEventListener('message_done', (e) => {
+        const data = JSON.parse(e.data);
+        finalizeStreamMessage(data.content);
+    });
+
+    eventSource.addEventListener('chat_error', (e) => {
+        const data = JSON.parse(e.data);
+        finishStreaming();
+        appendMessage('error', data.detail, false);
+    });
+
+    eventSource.addEventListener('diagram_changed', (e) => {
+        const data = JSON.parse(e.data);
+        updateDiagram(data.file, data.content);
+    });
+
+    eventSource.addEventListener('diagram_added', (e) => {
+        const data = JSON.parse(e.data);
+        addDiagramCard(data.file, data.content);
+    });
+
+    eventSource.addEventListener('diagram_removed', (e) => {
+        const data = JSON.parse(e.data);
+        removeDiagramCard(data.file);
+    });
+
+    eventSource.addEventListener('ping', () => {});
+
+    eventSource.onerror = () => {
+        // Auto-reconnect is handled by EventSource
+    };
+}
+
+function disconnectSSE() {
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+    }
+}
+
+// =========================================================================
+// Chat messaging
+// =========================================================================
+
+function appendMessage(role, content, scroll = true) {
+    const container = document.getElementById('chat-messages');
+    // Hide welcome state
+    const welcome = document.getElementById('chat-welcome');
+    if (welcome) welcome.style.display = 'none';
+
+    const div = document.createElement('div');
+    div.className = `chat-msg ${role}`;
+    
+    if (role === 'assistant') {
+        div.innerHTML = `
+            <div class="msg-avatar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3c-4.5 0-8 3.5-8 8 0 2.5 1.5 4.5 3 6l-1 4 4-1c1.5.5 3 .5 4.5.5 4.5 0 8-3.5 8-8s-3.5-8-8-8z"/>
+                </svg>
+            </div>
+            <div class="msg-content">${marked.parse(content)}</div>
+        `;
+    } else if (role === 'user') {
+        div.innerHTML = `<div class="msg-bubble">${escapeHtml(content)}</div>`;
+    } else if (role === 'error') {
+        div.innerHTML = `
+            <div class="msg-avatar" style="background: #ef4444;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 8v4M12 16h.01"/>
+                </svg>
+            </div>
+            <div class="msg-content">${escapeHtml(content)}</div>
+        `;
+    }
+    
+    container.appendChild(div);
+    if (scroll) container.scrollTop = container.scrollHeight;
+    return div;
+}
+
+function showThinking() {
+    hideThinking();
+    const container = document.getElementById('chat-messages');
+    const welcome = document.getElementById('chat-welcome');
+    if (welcome) welcome.style.display = 'none';
+    
+    const el = document.createElement('div');
+    el.className = 'chat-thinking';
+    el.id = 'thinking-indicator';
+    el.innerHTML = `
+        <div class="thinking-avatar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 3c-4.5 0-8 3.5-8 8 0 2.5 1.5 4.5 3 6l-1 4 4-1c1.5.5 3 .5 4.5.5 4.5 0 8-3.5 8-8s-3.5-8-8-8z"/>
+            </svg>
+        </div>
+        <div class="thinking-content">
+            <span>Thinking</span>
+            <div class="thinking-dots">
+                <div class="thinking-dot"></div>
+                <div class="thinking-dot"></div>
+                <div class="thinking-dot"></div>
+            </div>
+        </div>
+    `;
+    container.appendChild(el);
+    container.scrollTop = container.scrollHeight;
+}
+
+function hideThinking() {
+    const el = document.getElementById('thinking-indicator');
+    if (el) el.remove();
+}
+
+function appendStreamToken(text) {
+    hideThinking();
+    const container = document.getElementById('chat-messages');
+    const welcome = document.getElementById('chat-welcome');
+    if (welcome) welcome.style.display = 'none';
+    
+    if (!streamingMsgEl) {
+        // Start a new streaming message bubble with avatar
+        streamingMsgEl = document.createElement('div');
+        streamingMsgEl.className = 'chat-msg assistant';
+        streamingMsgEl.innerHTML = `
+            <div class="msg-avatar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3c-4.5 0-8 3.5-8 8 0 2.5 1.5 4.5 3 6l-1 4 4-1c1.5.5 3 .5 4.5.5 4.5 0 8-3.5 8-8s-3.5-8-8-8z"/>
+                </svg>
+            </div>
+            <div class="msg-content"></div>
+        `;
+        container.appendChild(streamingMsgEl);
+        streamingText = '';
+        isStreaming = true;
+    }
+    streamingText += text;
+    // Re-render with markdown
+    const contentEl = streamingMsgEl.querySelector('.msg-content');
+    if (contentEl) {
+        contentEl.innerHTML = marked.parse(streamingText);
+    }
+    container.scrollTop = container.scrollHeight;
+}
+
+function finalizeStreamMessage(fullContent) {
+    if (streamingMsgEl) {
+        const content = fullContent || streamingText;
+        const contentEl = streamingMsgEl.querySelector('.msg-content');
+        if (contentEl) {
+            contentEl.innerHTML = marked.parse(content);
+        }
+    }
+    finishStreaming();
+}
+
+function finishStreaming() {
+    hideThinking();
+    streamingMsgEl = null;
+    streamingText = '';
+    isStreaming = false;
+    setChatBusy(false);
+}
+
+function setChatBusy(busy) {
+    const sendBtn = document.getElementById('chat-send-btn');
+    const cancelBtn = document.getElementById('cancel-btn');
+    const input = document.getElementById('chat-input');
+    
+    if (sendBtn) {
+        sendBtn.style.display = busy ? 'none' : 'flex';
+    }
+    if (cancelBtn) {
+        cancelBtn.style.display = busy ? 'flex' : 'none';
+    }
+    if (input) input.disabled = busy;
+}
+
+async function cancelChat() {
+    if (!currentSessionId) return;
+    try {
+        await fetch(`/api/projects/${PROJECT_ID}/chat/sessions/${currentSessionId}/cancel`, { method: 'POST' });
+    } catch {}
+    finishStreaming();
+    if (document.getElementById('chat-input')) {
+        document.getElementById('chat-input').disabled = false;
+    }
+}
+
+async function sendChat() {
+    const input = document.getElementById('chat-input');
+    const message = input.value.trim();
+    if (!message || !currentSessionId) return;
+
+    input.value = '';
+    const userMsg = appendMessage('user', message);
+    userMsg.classList.add('sent-flash');
+
+    // Show thinking indicator
+    showThinking();
+
+    // Build context from attached diagrams + selected elements
+    let context = '';
+    for (const file of attachedDiagrams) {
+        if (diagramContents[file]) {
+            context += `\n--- ${file} ---\n${diagramContents[file]}\n`;
+        }
+        // Add selected element focus
+        const selected = selectedElements.get(file);
+        if (selected && selected.size > 0) {
+            context += `\n--- SELECTED ELEMENTS in ${file} ---\n`;
+            for (const nodeId of selected) {
+                const connections = getNodeConnections(file, nodeId);
+                context += `Focus: ${nodeId}\n`;
+                if (connections.length > 0) {
+                    context += `Connections:\n${connections.map(c => '  ' + c).join('\n')}\n`;
+                }
+            }
+            context += `--- END SELECTED ---\n`;
+        }
+    }
+
+    setChatBusy(true);
+
+    try {
+        const resp = await fetch(`/api/projects/${PROJECT_ID}/chat/sessions/${currentSessionId}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message,
+                context: context || null,
+                provider: getSelectedProvider(),
+                model: document.getElementById('chat-model').value || null,
+            }),
+        });
+        if (!resp.ok) {
+            const detail = await resp.json().catch(() => null);
+            finishStreaming();
+            appendMessage('error', detail?.detail || 'Failed to send message');
+            setChatEnabled(true);
+            return;
+        }
+        // Response will stream via SSE
+    } catch (err) {
+        finishStreaming();
+        appendMessage('error', err.message);
+        setChatEnabled(true);
+    }
+}
+
+// =========================================================================
+// Live Diagram Updates
+// =========================================================================
+
+async function updateDiagram(filename, content) {
+    diagramContents[filename] = content;
+
+    // Find the diagram card and re-render
+    const idx = DIAGRAMS.findIndex(d => d.file === filename);
+    if (idx === -1) return;
+
+    const el = document.getElementById(`mermaid-${idx + 1}`);
+    const card = el?.closest('.diagram-card');
+    if (!el) return;
+
+    // Visual feedback
+    if (card) {
+        card.classList.add('diagram-updating');
+        setTimeout(() => card.classList.remove('diagram-updating'), 1000);
+    }
+
+    const diagramType = DIAGRAMS[idx]?.type;
+    await renderDiagramContent(el, filename, content, idx + 1, diagramType);
+}
+
+async function addDiagramCard(filename, content) {
+    // Check if diagram already in our list (shouldn't happen, but safety)
+    if (DIAGRAMS.find(d => d.file === filename)) {
+        return updateDiagram(filename, content);
+    }
+
+    // Add to tracking
+    // Infer type from extension for dynamically added diagrams
+    const ext = filename.split('.').pop();
+    const EXT_MAP = { mmd: 'mermaid', puml: 'plantuml', d2: 'd2', dot: 'graphviz', drawio: 'drawio', md: 'markdown' };
+    const newDiagram = { file: filename, name: filename.replace(/\.\w+$/, ''), category: 'architecture', type: EXT_MAP[ext] || 'mermaid' };
+    DIAGRAMS.push(newDiagram);
+    diagramContents[filename] = content;
+
+    const grid = document.getElementById('diagram-grid');
+    if (!grid) return;
+
+    const idx = DIAGRAMS.length;
+    const card = document.createElement('div');
+    card.className = 'diagram-card';
+    card.dataset.diagramFile = filename;
+    card.onclick = () => toggleContext(filename, idx);
+    const editBtn = newDiagram.type === 'markdown'
+        ? `<button class="md-edit-btn" data-edit-idx="${idx}" onclick="event.stopPropagation(); toggleMarkdownEdit(${idx})" title="Edit markdown">&#9998;</button>`
+        : '';
+    card.innerHTML = `
+        <div class="diagram-header">
+            <div class="flex items-center gap-2 flex-1 min-w-0">
+                <span class="font-semibold text-sm truncate">${escapeHtml(newDiagram.name)}</span>
+                <span class="badge badge-arch">architecture</span>
+                <span class="text-green-400 text-xs">NEW</span>
+            </div>
+            <div class="flex items-center gap-2">
+                ${editBtn}
+                <span class="attach-indicator off" id="ctx-${idx}">click to attach</span>
+            </div>
+        </div>
+        <div class="diagram-body" onclick="event.stopPropagation()">
+            <div class="diagram-viewport" id="viewport-${idx}">
+                <div class="mermaid" id="mermaid-${idx}">Loading...</div>
+            </div>
+            <div class="diagram-zoom-controls">
+                <button onclick="zoomDiagram(${idx}, -0.2)" title="Zoom out">&minus;</button>
+                <button onclick="resetZoom(${idx})" title="Reset zoom">1:1</button>
+                <button onclick="zoomDiagram(${idx}, 0.2)" title="Zoom in">+</button>
+                <a class="diagram-expand-btn"
+                   href="/project/${PROJECT_ID}/arch/${FEATURE_NAME}/diagram/${escapeHtml(filename)}"
+                   target="_blank"
+                   title="Open full-page view">&#x26F6;</a>
+            </div>
+        </div>
+    `;
+    grid.appendChild(card);
+
+    const el = document.getElementById(`mermaid-${idx}`);
+    if (el) await renderDiagramContent(el, filename, content, idx, newDiagram.type);
+    initViewport(idx);
+
+    // Flash
+    card.classList.add('diagram-updating');
+    setTimeout(() => card.classList.remove('diagram-updating'), 1500);
+}
+
+function removeDiagramCard(filename) {
+    const card = document.querySelector(`.diagram-card[data-diagram-file="${filename}"]`);
+    if (card) {
+        card.style.opacity = '0.3';
+        setTimeout(() => card.remove(), 500);
+    }
+    delete diagramContents[filename];
+    attachedDiagrams.delete(filename);
+    selectedElements.delete(filename);
+    updateAttachedUI();
+    updateSelectedUI();
+}
+
+// =========================================================================
+// Utilities
+// =========================================================================
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#039;');
+}
+
+// =========================================================================
+// Event Listeners
+// =========================================================================
+
+// Enter to send, auto-resize textarea
+document.getElementById('chat-input')?.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (!isStreaming && currentSessionId) sendChat();
+    }
+});
+
+document.getElementById('chat-input')?.addEventListener('input', function(e) {
+    // Auto-resize
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+// Close popup when clicking outside
+document.addEventListener('click', function(e) {
+    const popup = document.getElementById('session-popup');
+    const dropdown = document.querySelector('.chat-header-dropdown');
+    if (popup && dropdown && !popup.contains(e.target) && !dropdown.contains(e.target)) {
+        popup.classList.remove('open');
+    }
+});
+
+// =========================================================================
+// Init: load sessions on page ready
+// =========================================================================
+
+loadSessions();
+</script>
+{% endblock %}

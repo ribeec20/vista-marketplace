@@ -1,0 +1,19 @@
+# Progress Tracking: {{FEATURE_NAME}}
+# Created: {{DATE}}
+#
+# IMPORTANT: Update this file at the END of every build iteration.
+# When ALL implementation is complete: Add "ALL PHASES COMPLETE" as the first non-comment line.
+
+Phase: planning
+CurrentPhase: 1
+
+## Last Iteration Summary
+(Update this section after each iteration with what you accomplished)
+
+## Next Steps
+(What should be tackled in the next iteration)
+
+## Completed Items
+- (none yet)
+
+## Notes

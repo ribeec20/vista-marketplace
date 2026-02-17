@@ -1,0 +1,19 @@
+## Progress: providers-mcp-tools
+
+### Phase: Planning
+- [x] Step 1: Feature directory scaffolded
+- [x] Step 2: Domain requirements gathered and written
+- [x] Step 3: Topic specs written (3 specs: mcp-tools, provider-registry, settings-integration)
+- [x] Step 4: PRD generated (24 test items across functional/error-handling/platform/security/performance)
+- [x] Step 5: Plan JSON synthesized (5 phases, 14 tasks)
+- [ ] Step 6: Preview visualization (preview.py not available)
+- [ ] Step 7: Review and approval
+
+### Key Decisions
+- Follows tool_groups registration pattern (like teams_tools.py and ralph_tools.py)
+- Two MCP tools: list_providers (discovery) and invoke_provider (one-shot invocation)
+- Reuses existing get_ralph_providers() for model discovery and metadata
+- invoke_provider uses subprocess pipe pattern (stdin prompt, stdout response)
+- Provider base class documented with required vs optional methods
+- get_spawn_info() added as forward-looking method for teams spawner integration
+- Ships with Claude + OpenCode; extensible via registry for future backends

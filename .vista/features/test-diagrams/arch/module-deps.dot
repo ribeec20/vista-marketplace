@@ -1,0 +1,43 @@
+digraph ModuleDependencies {
+    rankdir=LR;
+    node [shape=box, style="rounded,filled", fillcolor="#334155", fontcolor="white", fontname="Arial"];
+    edge [color="#64748b"];
+
+    subgraph cluster_server {
+        label="Server Layer";
+        style=dashed;
+        color="#475569";
+        fontcolor="#94a3b8";
+
+        routes [label="Routes"];
+        services [label="Services"];
+        models [label="Models"];
+    }
+
+    subgraph cluster_mcp {
+        label="MCP Layer";
+        style=dashed;
+        color="#475569";
+        fontcolor="#94a3b8";
+
+        mcp_server [label="MCP Server"];
+        tools [label="Tool Definitions"];
+    }
+
+    subgraph cluster_views {
+        label="View Layer";
+        style=dashed;
+        color="#475569";
+        fontcolor="#94a3b8";
+
+        templates [label="Jinja2 Templates"];
+        static [label="Static Assets"];
+    }
+
+    mcp_server -> tools;
+    mcp_server -> services;
+    routes -> services;
+    services -> models;
+    templates -> static;
+    routes -> templates;
+}

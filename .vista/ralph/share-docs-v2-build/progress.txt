@@ -1,0 +1,68 @@
+---
+Iteration: 1
+Time: 2026-02-15T14:00:00
+
+WHAT WAS DONE:
+- vista/server/services/export_service.py: Extended get_exportable_features() to detect progress.txt, AGENTS.md, and IMPLEMENTATION_PLAN.md via ProgressService. Added has_progress, has_agents_md, has_implementation_plan boolean flags to feature dicts. Updated inclusion criteria to include features with any of the new content types.
+- vista/server/services/export_service.py: Extended generate_export_html() to read progress, agents, and implementation plan content per feature. Added include_requirements/include_progress/include_agents/include_implementation_plan toggle support from selection dicts. Added progress, agents, and implementation_plans to export_data JSON blob.
+- vista/server/routes/export.py: Added include_requirements, include_progress, include_agents, include_implementation_plan optional boolean fields to ExportFeatureSelection model (all default True for backward compat). Made diagrams field default to empty list.
+- vista/server/views/export.html: Added Implementation Plan, Progress Log, and Agents sections after Domain Requirements in the feature template. Renamed renderAllRequirements() to renderAllMarkdown() which renders all content types. Progress rendered as plain text, others via marked.parse().
+- vista/server/views/project.html: Added indicator badges for new content types (+ progress, + agents, + plan) in export tree. Added per-content-type checkboxes within expanded feature section. Updated collectSelectedFeatures() to include content toggle flags. Updated selectAllExport() to handle .content-cb checkboxes.
+- vista/tests/test_export_service.py: Added 7 new tests in TestExportableFeaturesV2ContentTypes class covering: progress-only features, plan-only features, new flag reporting, HTML generation with progress/plan/agents, and content toggle respect.
+
+WHAT WAS NOT DONE:
+- Phase 2 (Ralph Job Artifacts): Deferred to next iteration
+- Phase 3 (Offline-First): Deferred to future iteration
+- Phase 4 (Theme/TOC): Deferred to future iteration
+- Phase 5 (Export History): Deferred to future iteration
+
+Tests: 23 passing, 0 failing (vista/tests/test_export_service.py)
+---
+
+---
+Iteration: 2
+Time: 2026-02-15T22:45:00
+
+WHAT WAS DONE:
+- vista/server/services/export_service.py: Added get_exportable_ralph_jobs() static method that scans .vista/ralph/ for job directories with exportable artifacts (task.md, IMPLEMENTATION_PLAN.md, progress.txt). Reads job.json for metadata (mode, status). Returns list of dicts with slug, mode, status, and has_task/has_plan/has_progress flags.
+- vista/server/services/export_service.py: Added read_ralph_artifact() helper with path traversal prevention — whitelists only task.md, IMPLEMENTATION_PLAN.md, progress.txt filenames and validates job_slug has no directory traversal.
+- vista/server/services/export_service.py: Extended generate_export_html() to accept optional selected_ralph_jobs parameter. Reads Ralph artifacts per job with per-content toggles (include_task, include_plan, include_progress). Populates ralph_tasks, ralph_plans, ralph_progress in export_data JSON blob.
+- vista/server/routes/export.py: Added ExportRalphJobSelection model (slug, include_task, include_plan, include_progress). Added ralph_jobs field to ExportRequest (default empty list). Added GET /api/projects/{id}/export/ralph-jobs endpoint. Updated POST export handler to pass ralph_jobs to generate_export_html().
+- vista/server/views/export.html: Added Ralph Jobs sections after features loop with Task, Implementation Plan, and Progress Log subsections. Updated nav to include Ralph job links with "ralph:" prefix badge. Extended renderAllMarkdown() to render ralph_tasks (markdown), ralph_plans (markdown), and ralph_progress (plain text).
+- vista/server/views/project.html: Updated openExportModal() to fetch both features and ralph-jobs in parallel. Extended renderExportTree() with Ralph Jobs section showing slug, mode, status, and per-artifact checkboxes. Added toggleRalphExpand(), collectSelectedRalphJobs(). Updated selectAllExport() and updateDownloadButton() to include .ralph-cb and .ralph-content-cb. Updated startExport() to send ralph_jobs in POST body.
+- vista/tests/test_export_service.py: Added _setup_ralph_job() helper and 12 new tests in TestExportableRalphJobs and TestExportRalphRoutes classes covering: empty dir, job discovery, all-artifact detection, empty job skipping, artifact reading, non-exportable file blocking, path traversal blocking, HTML generation with Ralph jobs, content toggles, mixed features+ralph, GET endpoint, and POST export with ralph_jobs.
+
+WHAT WAS NOT DONE:
+- Phase 3 (Offline-First): Deferred to future iteration
+- Phase 4 (Theme/TOC): Deferred to future iteration
+- Phase 5 (Export History): Deferred to future iteration
+
+Tests: 35 passing, 0 failing (vista/tests/test_export_service.py)
+---
+
+---
+Iteration: 3
+Time: 2026-02-15T23:30:00
+
+WHAT WAS DONE:
+- vista/server/views/static/vendor/tailwind-export.css: Created pre-built Tailwind CSS file with exact utility classes used by export.html — enables offline mode without the CDN runtime.
+- vista/server/views/static/vendor/marked.min.js: Downloaded Marked.js v15 minified (~40KB) for offline inline embedding.
+- vista/server/views/static/vendor/mermaid.min.js: Downloaded Mermaid.js v11 minified (~2.7MB) for offline inline embedding.
+- vista/server/services/export_service.py: Added VENDOR_DIR/VENDOR_FILES constants, read_vendor_file() static method, and offline/default_theme parameters to generate_export_html(). When offline=True, reads vendor files and passes them to template for inlining.
+- vista/server/routes/export.py: Added offline (bool, default False) and default_theme (str, default "dark") fields to ExportRequest model. Passes both to generate_export_html().
+- vista/server/views/export.html: Complete template rewrite for Phase 3+4:
+  - Conditional inline vs CDN deps using Jinja2 {% if offline %} blocks
+  - CSS custom properties for theming (--bg-primary, --text-primary, etc.)
+  - [data-theme="dark"] and [data-theme="light"] rule sets
+  - Theme toggle button with Mermaid re-render on theme switch
+  - Collapsible TOC sidebar with overlay
+  - Replaced hardcoded Tailwind classes in structural elements with inline styles + CSS vars for offline compatibility
+  - All existing functionality preserved (diagrams, zoom, requirements, progress, agents, plans, ralph jobs)
+- vista/server/views/project.html: Added offline checkbox and theme dropdown to export modal footer. Updated startExport() to include offline and default_theme in POST body.
+- vista/tests/test_export_service.py: Added 13 new tests across TestOfflineMode (5 tests) and TestThemeAndToc (8 tests) covering: vendor file reading, online/offline CDN vs inline, offline via route, default themes, light theme, theme toggle button, TOC sidebar, TOC feature/ralph links, theme via route, CSS custom properties.
+
+WHAT WAS NOT DONE:
+- Phase 5 (Export History): Deferred to future iteration
+
+Tests: 48 passing, 0 failing (vista/tests/test_export_service.py)
+---

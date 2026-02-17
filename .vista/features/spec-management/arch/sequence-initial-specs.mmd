@@ -1,0 +1,29 @@
+sequenceDiagram
+    actor User
+    participant Agent as Chatting Agent
+    participant Specs as /vista:specs (modified)
+    participant FS as File System
+    participant Git as Git
+
+    User->>Agent: /vista:specs my-feature
+    Agent->>Specs: invoke specs(my-feature)
+
+    Specs->>FS: Read domain-requirements.md
+    Specs->>FS: Read arch/_arch.json + *.mmd
+
+    Specs->>Specs: Decompose into topics
+    Specs->>User: Confirm topic list
+    User->>Specs: Approved
+
+    loop For each topic
+        Specs->>Specs: Extract requirements from domain-requirements.md
+        Specs->>Specs: Derive feature prefix (e.g., MF for my-feature)
+        Specs->>Specs: Assign sequential IDs (MF-F1, MF-F2, MF-NF1...)
+        Specs->>FS: Write specs/{topic}.md with:<br/>- Changelog (Created entry)<br/>- Requirement IDs on each req<br/>- Requirement Index table
+    end
+
+    Specs->>Git: git add specs/*.md
+    Specs->>Git: git commit -m "spec(my-feature): initial spec generation with N topics"
+
+    Specs-->>Agent: Report generated specs
+    Agent-->>User: "Generated N specs with requirement IDs. Next: /vista:spec-update to modify."

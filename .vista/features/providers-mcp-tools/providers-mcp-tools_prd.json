@@ -1,0 +1,264 @@
+[
+  {
+    "category": "functional",
+    "description": "list_providers returns all enabled providers with live-discovered models",
+    "steps": [
+      "Call list_providers MCP tool with no parameters",
+      "Verify response is valid JSON with 'providers' key",
+      "Verify only enabled providers (from settings.json) are included",
+      "Verify each provider has 'name', 'display_name', and 'models' array",
+      "Verify models are live-discovered (same as provider.get_models())"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "list_providers includes model metadata from ralph settings",
+    "steps": [
+      "Configure ralph.providers.claude.model_metadata with cost_tier and best_for_tags",
+      "Call list_providers",
+      "Verify each model has 'id', 'cost_tier', 'best_for_tags', 'best_for_notes' fields",
+      "Verify metadata values match settings configuration",
+      "Verify models without metadata show null cost_tier and empty arrays"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "list_providers respects model allowlist/blocklist filtering",
+    "steps": [
+      "Configure ralph.providers.claude.models_allowed = ['opus', 'sonnet']",
+      "Call list_providers",
+      "Verify claude provider's models contain only 'opus' and 'sonnet'",
+      "Verify 'haiku' is NOT in the models array"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "list_providers handles missing CLI gracefully",
+    "steps": [
+      "Enable opencode provider but ensure opencode CLI is not installed",
+      "Call list_providers",
+      "Verify opencode provider appears with empty models array",
+      "Verify no crash - tool returns valid JSON"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "list_providers handles missing ralph settings section",
+    "steps": [
+      "Remove the 'ralph' section from settings.json entirely",
+      "Call list_providers",
+      "Verify fallback to top-level providers with all live-discovered models",
+      "Verify models have null metadata (no cost_tier, empty tags)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "invoke_provider sends prompt and returns CLI response for claude",
+    "steps": [
+      "Call invoke_provider with provider='claude', model='haiku', prompt='Say hello in one word'",
+      "Verify response is a non-empty string containing the CLI's output",
+      "Verify no JSON wrapper on success - just the raw response text",
+      "Verify subprocess was spawned with claude -p --model haiku"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "invoke_provider sends prompt and returns CLI response for opencode",
+    "steps": [
+      "Ensure opencode CLI is installed and configured",
+      "Call invoke_provider with provider='opencode', model from list_providers, prompt='Say hello'",
+      "Verify response is a non-empty string",
+      "Verify subprocess used opencode run --model <model>"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "invoke_provider pipes prompt via stdin (not CLI args)",
+    "steps": [
+      "Call invoke_provider with a prompt containing special characters ($, \", newlines)",
+      "Verify prompt is passed via subprocess stdin pipe",
+      "Verify prompt does NOT appear in process command-line arguments",
+      "Verify response is received without shell injection issues"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "invoke_provider respects custom timeout parameter",
+    "steps": [
+      "Call invoke_provider with timeout=5 and a prompt that would take longer",
+      "Verify tool returns error after approximately 5 seconds",
+      "Verify error message indicates timeout",
+      "Verify subprocess is killed (process tree terminated)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "invoke_provider uses default timeout from settings when not specified",
+    "steps": [
+      "Configure tools.providers.default_timeout = 60 in settings.json",
+      "Call invoke_provider without specifying timeout",
+      "Verify the subprocess timeout is 60 seconds (not the hardcoded 120)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "invoke_provider returns error for unknown provider",
+    "steps": [
+      "Call invoke_provider with provider='nonexistent'",
+      "Verify JSON error response with descriptive message",
+      "Verify available providers are listed in the error message"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "invoke_provider returns error for disabled provider",
+    "steps": [
+      "Set providers.opencode.enabled = false in settings.json",
+      "Call invoke_provider with provider='opencode'",
+      "Verify JSON error response indicating provider is not enabled"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "invoke_provider returns error when CLI binary not found",
+    "steps": [
+      "Enable a provider whose CLI is not installed",
+      "Call invoke_provider with that provider",
+      "Verify JSON error response indicating binary not found on PATH"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "invoke_provider returns error for unavailable model",
+    "steps": [
+      "Call invoke_provider with provider='claude', model='nonexistent-model'",
+      "Verify JSON error response indicating model not available",
+      "Verify available models are listed in the error message"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "invoke_provider returns error when CLI process fails",
+    "steps": [
+      "Call invoke_provider with a configuration that causes CLI to exit with non-zero code",
+      "Verify JSON error response including exit code",
+      "Verify stderr content is included in the error message"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "invoke_provider handles empty response from CLI",
+    "steps": [
+      "Call invoke_provider with a prompt that produces no output",
+      "Verify empty string is returned (not an error)",
+      "Verify no JSON error wrapper"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "providers tool group follows tool_groups registration pattern",
+    "steps": [
+      "Verify tool_groups/__init__.py has 'providers' in _TOOL_GROUPS dict",
+      "Verify tool_groups/providers_tools.py has register(mcp, settings) function",
+      "Verify server/config.py _TOOLS_DEFAULTS has 'providers' entry",
+      "Verify tools are registered when tools.providers.enabled = true",
+      "Verify tools are NOT registered when tools.providers.enabled = false"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "providers tool group registers without affecting teams or ralph tools",
+    "steps": [
+      "Enable all three tool groups (teams, ralph, providers)",
+      "Start MCP server",
+      "Verify all 13 teams tools are registered",
+      "Verify all 5 ralph tools are registered",
+      "Verify both providers tools (list_providers, invoke_provider) are registered",
+      "Verify no naming conflicts between tool groups"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Provider base class documents required vs optional methods",
+    "steps": [
+      "Read Provider class docstring",
+      "Verify required methods are documented: get_models, get_chat_cmd, get_invocation",
+      "Verify optional methods with defaults are documented",
+      "Verify get_summarizer_command has fallback to get_chat_cmd"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "New provider can be added with minimal code",
+    "steps": [
+      "Create a TestProvider subclass implementing only required methods",
+      "Add to _PROVIDER_REGISTRY",
+      "Add settings entry with enabled=true",
+      "Call list_providers",
+      "Verify new provider appears with its models",
+      "Call invoke_provider with new provider",
+      "Verify it works"
+    ],
+    "passes": false
+  },
+  {
+    "category": "platform",
+    "description": "invoke_provider works correctly on Windows",
+    "steps": [
+      "Call invoke_provider on Windows",
+      "Verify CREATE_NO_WINDOW flag is set on subprocess",
+      "Verify .cmd/.bat wrappers are handled with cmd.exe /c prefix",
+      "Verify process tree is killed on timeout using taskkill /T /F"
+    ],
+    "passes": false
+  },
+  {
+    "category": "security",
+    "description": "invoke_provider does not expose prompts in process arguments",
+    "steps": [
+      "Call invoke_provider with a prompt containing sensitive data",
+      "Verify prompt is sent via stdin pipe, not as CLI argument",
+      "Verify prompt does not appear in process listing (tasklist / ps)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "performance",
+    "description": "list_providers completes within 15 seconds",
+    "steps": [
+      "Call list_providers with all providers enabled",
+      "Verify response received within 15 seconds",
+      "Verify each provider's model discovery has individual 10s timeout"
+    ],
+    "passes": false
+  },
+  {
+    "category": "performance",
+    "description": "Concurrent invoke_provider calls are independent",
+    "steps": [
+      "Call invoke_provider twice concurrently with different providers",
+      "Verify both calls return independently",
+      "Verify no shared state corruption between calls"
+    ],
+    "passes": false
+  }
+]

@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Vista Architecture Manifest",
+  "description": "Schema for architecture directory manifest referencing native diagram files",
+  "type": "object",
+  "required": ["feature", "diagrams"],
+  "properties": {
+    "feature": {
+      "type": "string",
+      "description": "Feature name matching the directory name"
+    },
+    "diagrams": {
+      "type": "array",
+      "description": "List of diagram files in the architecture directory",
+      "items": {
+        "type": "object",
+        "required": ["name", "file", "type", "diagramType", "description"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Human-readable name for the diagram"
+          },
+          "file": {
+            "type": "string",
+            "description": "Filename relative to arch/ directory"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["mermaid", "drawio", "plantuml", "d2", "graphviz", "markdown"],
+            "description": "Diagram format type"
+          },
+          "diagramType": {
+            "type": "string",
+            "description": "Specific diagram subtype",
+            "enum": [
+              "flowchart",
+              "sequence",
+              "state",
+              "er",
+              "gantt",
+              "architecture",
+              "wireframe",
+              "custom",
+              "logic-flow",
+              "decision-tree",
+              "test-contract"
+            ]
+          },
+          "category": {
+            "type": "string",
+            "description": "Diagram category for grouping and filtering",
+            "enum": ["architecture", "tdd"],
+            "default": "architecture"
+          },
+          "description": {
+            "type": "string",
+            "description": "Brief description of what the diagram represents"
+          }
+        }
+      }
+    }
+  }
+}

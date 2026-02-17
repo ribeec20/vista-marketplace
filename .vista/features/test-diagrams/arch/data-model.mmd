@@ -1,0 +1,30 @@
+erDiagram
+    Project {
+        string id PK "UUID"
+        string name "Display name"
+        string path "Filesystem path"
+        datetime created_at "Registration time"
+    }
+
+    Feature {
+        string name PK "Directory name"
+        string project_id FK "Parent project"
+        string status "planning | building | done"
+    }
+
+    DiagramManifest {
+        string feature FK "Parent feature"
+        json diagrams "Array of DiagramEntry"
+    }
+
+    DiagramEntry {
+        string name "Display name"
+        string file "Filename in arch/"
+        enum type "mermaid | plantuml | d2 | graphviz | drawio | markdown"
+        string diagramType "flowchart | sequence | er | doc"
+        string category "architecture | tdd"
+    }
+
+    Project ||--o{ Feature : "contains"
+    Feature ||--|| DiagramManifest : "has"
+    DiagramManifest ||--o{ DiagramEntry : "lists"

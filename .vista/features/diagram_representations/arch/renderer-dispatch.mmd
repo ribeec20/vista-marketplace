@@ -1,0 +1,33 @@
+flowchart TD
+    Start(["Load _arch.json manifest"])
+    ReadType{"Read entry.type"}
+
+    subgraph ClientSide["Client-Side Renderers (no server dependency)"]
+        Mermaid["MermaidRenderer<br/>mermaid.js<br/><i>JS library, CDN/bundled</i>"]
+        Drawio["DrawioRenderer<br/>diagrams.net viewer<br/><i>iframe embed</i>"]
+        D2["D2Renderer<br/>@terrastruct/d2<br/><i>WASM, lazy-loaded</i>"]
+        Graphviz["GraphvizRenderer<br/>@viz-js/viz<br/><i>WASM, lazy-loaded</i>"]
+        Markdown["MarkdownRenderer<br/>marked / react-markdown<br/><i>JS library, bundled</i>"]
+    end
+
+    subgraph ServerDep["Server-Dependent Renderer"]
+        PlantUML["PlantUMLRenderer<br/>plantuml-encoder + server<br/><i>Encode locally, fetch SVG</i>"]
+    end
+
+    Fallback["ErrorPlaceholder<br/><i>Unknown type: show raw source</i>"]
+
+    EditBtn{"Markdown?"}
+    EditMode["Inline Editor<br/><i>Toggle edit mode,<br/>save via PUT API</i>"]
+
+    Start --> ReadType
+    ReadType -->|"mermaid"| Mermaid
+    ReadType -->|"drawio"| Drawio
+    ReadType -->|"d2"| D2
+    ReadType -->|"graphviz"| Graphviz
+    ReadType -->|"markdown"| Markdown
+    ReadType -->|"plantuml"| PlantUML
+    ReadType -->|"unknown"| Fallback
+
+    Markdown --> EditBtn
+    EditBtn -->|"Click edit icon"| EditMode
+    EditBtn -->|"View only"| Markdown

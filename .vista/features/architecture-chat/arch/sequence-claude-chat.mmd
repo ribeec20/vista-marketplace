@@ -1,0 +1,44 @@
+sequenceDiagram
+    participant Browser as Browser<br/>(Vista Frontend)
+    participant Vista as Vista FastAPI<br/>(Hub Server)
+    participant Companion as Companion<br/>(Bun/Hono)
+    participant Claude as Claude CLI<br/>(--sdk-url)
+    participant FS as File System<br/>(arch/ + specs/)
+
+    Note over Browser,Claude: Session Creation
+    Browser->>Vista: POST /api/chat/sessions<br/>{provider: "claude", model: "opus", feature: "..."}
+    Vista->>Vista: Create ChatSession<br/>Save to disk
+    Vista->>Companion: Create CLI session<br/>(spawn claude --sdk-url ws://companion/ws/cli/{id})
+    Companion->>Claude: Launch process with --sdk-url
+    Claude-->>Companion: WebSocket connected (NDJSON)
+    Vista-->>Browser: {session_id, status: "ready"}
+
+    Note over Browser,Claude: Send Message with Context
+    Browser->>Vista: POST /api/chat/sessions/{id}/messages<br/>{message, attached_diagrams, selected_elements}
+    Vista->>Vista: ContextAssembler:<br/>system prompt + diagram contents<br/>+ selected nodes + history
+    Vista->>Companion: WebSocket: {type: "user", message: {role: "user", content: [{type: "text", text: assembled_prompt}]}}
+    Companion->>Claude: NDJSON relay to CLI stdin
+
+    Note over Browser,Claude: Streaming Response
+    Browser->>Vista: GET /api/chat/sessions/{id}/stream (SSE)
+
+    Claude->>Companion: NDJSON: {type: "stream_event", event: {type: "content_block_delta", delta: {text: "token"}}}
+    Companion->>Vista: WebSocket relay
+    Vista->>Browser: SSE: event: token, data: {"text": "token"}
+
+    Claude->>Companion: NDJSON: {type: "stream_event", ...more tokens...}
+    Companion->>Vista: WebSocket relay
+    Vista->>Browser: SSE: event: token, data: {"text": "..."}
+
+    Note over Browser,FS: AI Edits Diagram (auto-approved)
+    Claude->>FS: Write to arch/system-architecture.mmd
+    Note over Vista,FS: watchdog detects file change
+    FS-->>Vista: FileModifiedEvent
+    Vista->>Vista: ManifestUpdater:<br/>check if new/deleted file
+    Vista->>Browser: SSE: event: diagram_changed,<br/>data: {file, content}
+    Browser->>Browser: Re-render Mermaid diagram
+
+    Claude->>Companion: NDJSON: {type: "result", ...}
+    Companion->>Vista: WebSocket relay
+    Vista->>Vista: SessionService.add_message()<br/>Save assistant response
+    Vista->>Browser: SSE: event: message_done,<br/>data: {role: "assistant", content: "..."}

@@ -1,0 +1,24 @@
+stateDiagram-v2
+    [*] --> Closed
+
+    Closed --> Loading: Click Export button
+    Loading --> TreeReady: Features loaded
+    Loading --> Error: Load failed
+
+    state TreeReady {
+        [*] --> NoneSelected
+        NoneSelected --> SomeSelected: Check a diagram/feature
+        SomeSelected --> NoneSelected: Uncheck all
+        SomeSelected --> AllSelected: Check all
+        AllSelected --> SomeSelected: Uncheck one
+        SomeSelected --> SomeSelected: Toggle item
+    }
+
+    TreeReady --> Generating: Click Download\n(requires SomeSelected or AllSelected)
+    Generating --> Downloading: HTML generated
+    Generating --> Error: Generation failed
+
+    Downloading --> Closed: Download complete
+    Error --> TreeReady: Dismiss error
+    TreeReady --> Closed: Click close / backdrop
+    Error --> Closed: Click close

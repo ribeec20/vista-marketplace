@@ -1,0 +1,89 @@
+sequenceDiagram
+    participant User as Developer
+    participant Browser as Browser Client
+    participant Server as FastAPI Server
+    participant FS as File System
+    participant Cache as Render Cache
+    participant PUML as PlantUML Server/JAR
+    participant D2 as D2 CLI
+
+    User->>Browser: Navigate to /project/{id}/arch/{feature}
+    Note over Browser: Show loading skeletons
+
+    Browser->>Server: GET /api/projects/{id}/features/{name}/arch
+    Server->>FS: Read arch/_arch.json
+    alt File not found or invalid JSON
+        FS-->>Server: Error
+        Server-->>Browser: 404 or 400
+        Note over Browser: Show error state
+    else Success
+        FS-->>Server: Manifest JSON
+        Server-->>Browser: _arch.json with diagram entries
+    end
+
+    loop For each diagram entry
+        Browser->>Server: GET /api/projects/{id}/features/{name}/arch/{filename}
+        Server->>FS: Read diagram file (path validated within arch/)
+        alt Path traversal attempted
+            Server-->>Browser: 400 Forbidden
+        else File missing
+            Server-->>Browser: 404 Not Found
+            Note over Browser: Show placeholder card with format badge
+        else Success
+            FS-->>Server: File content
+            Server-->>Browser: Raw content (text/plain or application/json)
+        end
+    end
+
+    Note over Browser: Dispatch to renderer by type field
+
+    alt Mermaid (.mmd) — client-rendered
+        Note over Browser: mermaid.js renders SVG inline
+    else Draw.io (.drawio) — client-rendered
+        Note over Browser: iframe loaded with XML content
+    else Excalidraw (.excalidraw) — client-rendered
+        Note over Browser: Excalidraw component renders JSON read-only
+    else ASCII (.txt) — client-rendered
+        Note over Browser: pre block with monospace font
+    else PlantUML (.puml) — server-rendered
+        Browser->>Server: GET /api/.../arch/{filename}/render
+        Server->>Cache: Check hash of .puml content
+        alt Cache hit
+            Cache-->>Server: Cached SVG
+        else Cache miss
+            Server->>PUML: POST source or invoke JAR
+            alt PlantUML not available
+                PUML-->>Server: Error
+                Server-->>Browser: Raw source + "PlantUML not configured" message
+            else Success
+                PUML-->>Server: SVG output
+                Server->>Cache: Store SVG with content hash
+            end
+        end
+        Server-->>Browser: SVG or error + raw source
+        Note over Browser: Display SVG inline or show fallback
+    else D2 (.d2) — server-rendered
+        Browser->>Server: GET /api/.../arch/{filename}/render
+        Server->>Cache: Check hash of .d2 content
+        alt Cache hit
+            Cache-->>Server: Cached SVG
+        else Cache miss
+            Server->>D2: d2 input.d2 - (subprocess)
+            alt d2 CLI not installed
+                D2-->>Server: Error
+                Server-->>Browser: Raw source + "d2 not installed" hint
+            else Syntax error
+                D2-->>Server: Parse error
+                Server-->>Browser: Error message + raw source
+            else Success
+                D2-->>Server: SVG on stdout
+                Server->>Cache: Store SVG with content hash
+            end
+        end
+        Server-->>Browser: SVG or error + raw source
+        Note over Browser: Display SVG inline or show fallback
+    end
+
+    alt Any render error
+        Note over Browser: Show error inline with raw source visible
+    end

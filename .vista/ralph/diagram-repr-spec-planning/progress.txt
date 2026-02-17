@@ -1,0 +1,15 @@
+---
+Iteration: 1 (plan)
+Time: 2026-02-15T22:10:00
+
+Plan written to: C:/Users/Grove/OneDrive/Documents/PYTHON/claude_plugins/vista-expanded-visualization/.vista/ralph/diagram-repr-spec-planning/IMPLEMENTATION_PLAN.md
+Summary: Comprehensive 6-phase implementation plan for multi-format diagram rendering (PlantUML, D2, Graphviz, Markdown), inline markdown editing with save/cancel, extended arch-schema.json type enum, PUT endpoint for file writes, diagram watcher extensions, and ~20 new tests. Covers all requirements from domain-requirements.md expansion section added 2026-02-15.
+---
+
+---
+Iteration: 2 (plan)
+Time: 2026-02-15T22:45:00
+
+Plan written to: C:/Users/Grove/OneDrive/Documents/PYTHON/claude_plugins/vista-expanded-visualization/.vista/ralph/diagram-repr-spec-planning/IMPLEMENTATION_PLAN.md
+Summary: Refined plan with 5 key corrections: (1) settings path fixed from non-existent settings_service.py to actual config.py, (2) D2 renderer changed from non-existent WASM to raw-source + optional Kroki, (3) Viz.js CDN path specified exactly, (4) WATCH_EXTENSIONS dual-definition noted, (5) test count increased to 33 tests. All code references verified against actual codebase with line numbers.
+---

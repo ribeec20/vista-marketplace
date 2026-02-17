@@ -1,0 +1,51 @@
+erDiagram
+    FEATURE ||--o{ SPEC_FILE : contains
+    SPEC_FILE ||--|{ REQUIREMENT : defines
+    SPEC_FILE ||--o{ CHANGELOG_ENTRY : tracks
+    REQUIREMENT ||--o{ CODE_REFERENCE : "traced by"
+    CHANGELOG_ENTRY }o--|| REQUIREMENT : "references"
+    CHANGELOG_ENTRY }o--o| GIT_COMMIT : "linked to"
+
+    FEATURE {
+        string name PK "e.g. ralph-mcp-tool"
+        string prefix "e.g. RMT (derived)"
+        string domain_requirements_path "domain-requirements.md"
+    }
+
+    SPEC_FILE {
+        string topic PK "e.g. mcp-tools"
+        string feature FK "parent feature"
+        string file_path "specs/mcp-tools.md"
+        date created_at "initial generation date"
+    }
+
+    REQUIREMENT {
+        string id PK "e.g. RMT-F5"
+        string category "F, NF, or BR"
+        int sequence_number "5"
+        string text "requirement description"
+        string status "Active or DEPRECATED"
+        string spec_topic FK "parent spec file"
+    }
+
+    CHANGELOG_ENTRY {
+        date date "2026-02-12"
+        string requirement_id FK "RMT-F5 or —"
+        string change "description of change"
+        string reason "why it changed"
+        string commit_hash "abc1234 or —"
+        string spec_topic FK "parent spec file"
+    }
+
+    CODE_REFERENCE {
+        string file_path "src/service.py"
+        int line_number "42"
+        string requirement_id FK "RMT-F5"
+        string comment "Implements RMT-F5: description"
+    }
+
+    GIT_COMMIT {
+        string hash PK "abc1234"
+        string message "spec(feature/topic): description"
+        date date "2026-02-12"
+    }

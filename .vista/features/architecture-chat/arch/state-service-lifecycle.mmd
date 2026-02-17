@@ -1,0 +1,44 @@
+stateDiagram-v2
+    [*] --> Stopped: initial
+
+    Stopped --> Starting: start()
+    Starting --> Running: health check passes
+    Starting --> Error: startup timeout / crash
+
+    Running --> Stopping: stop()
+    Running --> Error: process crash / health fail
+    Running --> Running: health check OK (periodic)
+
+    Error --> Restarting: auto-restart (backoff)
+    Error --> Stopped: max retries exceeded
+
+    Restarting --> Starting: spawn new process
+    Restarting --> Stopped: restart failed
+
+    Stopping --> Stopped: process terminated
+
+    state Starting {
+        [*] --> SpawnProcess
+        SpawnProcess --> WaitForPort: process started
+        WaitForPort --> PollHealth: port open
+        PollHealth --> [*]: health OK
+        PollHealth --> PollHealth: retry (500ms)
+    }
+
+    state Restarting {
+        [*] --> BackoffWait
+        BackoffWait --> AttemptRestart: backoff elapsed
+        note right of BackoffWait
+            Exponential backoff:
+            1s → 2s → 4s → 8s → 16s (max)
+        end note
+    }
+
+    state Running {
+        [*] --> Healthy
+        Healthy --> HealthCheck: every 10s
+        HealthCheck --> Healthy: OK
+        HealthCheck --> Unhealthy: timeout/error
+        Unhealthy --> HealthCheck: retry
+        Unhealthy --> [*]: 3 consecutive failures
+    }

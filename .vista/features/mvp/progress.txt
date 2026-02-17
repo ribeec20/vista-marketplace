@@ -1,0 +1,59 @@
+---
+Time: 2026-02-05
+Iteration: 1
+
+CODE CHANGES MADE:
+- server/__init__.py: Package marker
+- server/config.py: Server configuration (paths, host, port)
+- server/models/project.py: Project dataclass with JSON serialization
+- server/models/loop_state.py: LoopInstance dataclass with output tracking
+- server/services/project_service.py: JSON-based project CRUD
+- server/services/output_parser.py: Regex parser for loop script stdout
+- server/services/progress_service.py: Reader for progress.txt and IMPLEMENTATION_PLAN.md
+- server/services/loop_service.py: Core loop lifecycle manager mirroring ralph.py
+- server/routes/projects.py: Project CRUD API endpoints
+- server/routes/loops.py: Loop control API endpoints
+- server/routes/stream.py: SSE streaming endpoint
+- server/routes/plans.py: Plan viewing endpoints
+- server/app.py: FastAPI entry point with lifespan management
+- server/views/_base.html: Shared layout with TailwindCSS + dark theme
+- server/views/dashboard.html: Project cards grid with registration form
+- server/views/project.html: Project detail with loop controls and terminal
+- server/views/loop_status.html: Full-page loop monitoring view
+- server/views/plan_preview.html: Implementation plan renderer
+- server/views/static/style.css: Terminal styling and status badges
+- server/views/static/app.js: SSE client and UI interactions
+- scripts/start-server.ps1: Windows server start script
+- scripts/start-server.sh: Mac/Linux server start script
+- scripts/stop-server.ps1: Windows server stop script
+- scripts/stop-server.sh: Mac/Linux server stop script
+- scripts/start_server_check.py: Cross-platform hook launcher
+- hooks/hooks.json: SessionStart auto-start hook
+- server/data/projects.json: Empty project registry
+- requirements.txt: Python dependencies
+- tests/conftest.py: Shared test fixtures
+- tests/test_models.py: Model unit tests (6 tests)
+- tests/test_output_parser.py: Parser unit tests (11 tests)
+- tests/test_project_service.py: Service unit tests (10 tests)
+- tests/test_progress_service.py: Progress service tests (7 tests)
+- tests/test_api.py: API endpoint tests (15 tests + 5 dashboard/plan tests)
+
+Tests: pass (54/54)
+Commit: 83afd6c (tag: 0.0.1)
+---
+---
+Time: 2026-02-05
+Iteration: 2
+
+CODE CHANGES MADE:
+- server/app.py: Added /api/health endpoint, fixed TemplateResponse deprecation (request-first signature)
+- server/routes/plans.py: Fixed TemplateResponse deprecation (request-first signature)
+- server/routes/projects.py: Added /api/projects/{id}/features/detailed endpoint for rich feature metadata
+- server/services/project_service.py: Added scan_features_detailed() with file existence checks and spec counting
+- tests/test_loop_service.py: NEW - 35 comprehensive tests for loop_service (state, subscribers, start validation, prompt templates, script generation, cleanup, stop, output reading)
+- tests/test_api.py: Added 3 tests for health check, feature detail scanning, and 404 handling
+- .claude/features/mvp/IMPLEMENTATION_PLAN.md: Updated status to 92 tests, documented iteration 2 work and remaining items
+
+Tests: pass (92/92)
+Commit: 7cdf8df (tag: 0.0.2)
+---

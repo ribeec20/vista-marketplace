@@ -1,0 +1,61 @@
+sequenceDiagram
+    actor User
+    participant MCP as Vista MCP
+    participant RS as RalphService
+    participant CM as ContainerManager
+    participant CRED as CredentialMounter
+    participant Docker as Docker Daemon
+    participant Container as Docker Container
+
+    User->>MCP: ralph_start(task, sandbox=true)
+    MCP->>RS: create_job(task, sandbox=true)
+
+    RS->>CM: check_docker_available()
+    CM->>Docker: ping()
+    Docker-->>CM: OK
+
+    RS->>CM: ensure_image()
+    CM->>Docker: images.get("vista-ralph:latest")
+    alt Image not found
+        CM->>Docker: images.build(dockerfile)
+        Docker-->>CM: image built
+    end
+
+    RS->>RS: create job directory<br/>write task.md, PROMPT.md
+    RS->>RS: generate bash loop.sh<br/>(Linux variant)
+
+    RS->>CRED: get_mounts(host_os)
+    CRED-->>RS: mount specs<br/>(~/.claude, ~/.ssh, etc.)
+
+    RS->>CM: create_container(image, mounts, labels)
+    Note over CM: Single project mount covers<br/>job dir (.vista/ralph/job/)
+    CM->>Docker: containers.create(<br/>  image, volumes, labels,<br/>  auto_remove=true)
+    Docker-->>CM: container_id
+
+    CM->>Docker: container.start()
+    Docker->>Container: execute loop.sh
+
+    RS-->>MCP: job_id, container_id
+    MCP-->>User: Job started (sandboxed)
+
+    loop Dashboard polling
+        Container->>Container: agent writes output.log<br/>(shared volume)
+        User->>RS: get_job_status(job_id)
+        RS->>RS: read output.log from<br/>host filesystem
+        RS-->>User: parsed activity + sandbox badge
+    end
+
+    alt User stops job
+        User->>MCP: ralph_stop(job_id)
+        MCP->>RS: stop_job(job_id)
+        RS->>CM: stop_container(container_id)
+        CM->>Docker: container.stop()
+        Docker->>Container: SIGTERM
+        Note over Container: auto-removed
+    else Job completes naturally
+        Container->>Container: loop.sh exits
+        Note over Container: auto-removed
+    else TTL expires
+        Docker->>Container: force stop
+        Note over Container: auto-removed
+    end

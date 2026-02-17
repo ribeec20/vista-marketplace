@@ -1,0 +1,1 @@
+Analyze the vista plugin's ralph loop feature and suggest 3 small improvements to the activity log parsing. Focus on: edge cases in tool name display, handling of multi-tool assistant messages, and potential performance improvements for large output.log files.

@@ -1,0 +1,246 @@
+{% extends "_base.html" %}
+
+{% block title %}{{ job.slug }} - Ralph Job{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="mb-8">
+    <div class="flex items-center gap-3 mb-2">
+        <a href="/" class="text-gray-400 hover:text-gray-300">&larr; Dashboard</a>
+        <span class="text-gray-600">/</span>
+        <a href="/ralph/jobs" class="text-gray-400 hover:text-gray-300">Ralph Jobs</a>
+        <span class="text-gray-600">/</span>
+        <h1 class="text-3xl font-bold">{{ job.slug }}</h1>
+    </div>
+    <p class="text-gray-400 text-sm">{{ job.project_name }} &middot; Job {{ job.job_id[:8] }}&hellip;</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Sidebar: Metadata + Artifacts -->
+    <div class="lg:col-span-1">
+        <!-- Job Metadata -->
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4">Job Info</h2>
+            <div class="space-y-3">
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-400">Status</span>
+                    <span id="job-status">
+                        {% if job.status == "running" %}
+                        <span class="px-2 py-1 text-xs rounded-full bg-green-900 text-green-300 border border-green-700">Running</span>
+                        {% elif job.status == "completed" %}
+                        <span class="px-2 py-1 text-xs rounded-full bg-blue-900 text-blue-300 border border-blue-700">Completed</span>
+                        {% elif job.status == "failed" %}
+                        <span class="px-2 py-1 text-xs rounded-full bg-red-900 text-red-300 border border-red-700">Failed</span>
+                        {% elif job.status == "stopped" %}
+                        <span class="px-2 py-1 text-xs rounded-full bg-yellow-900 text-yellow-300 border border-yellow-700">Stopped</span>
+                        {% else %}
+                        <span class="px-2 py-1 text-xs rounded-full bg-gray-700 text-gray-400 border border-gray-600">{{ job.status }}</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-400">Mode</span>
+                    <span>
+                        {% if job.mode == "plan" %}
+                        <span class="px-2 py-0.5 text-xs rounded bg-blue-900/50 text-blue-300 border border-blue-800">plan</span>
+                        {% else %}
+                        <span class="px-2 py-0.5 text-xs rounded bg-green-900/50 text-green-300 border border-green-800">build</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-400">Provider</span>
+                    <span>{{ job.provider }}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-400">Model</span>
+                    <span>{{ job.model }}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-400">Iteration</span>
+                    <span id="job-iteration" class="font-mono">{{ job.current_iteration or 0 }} / {{ job.iterations }}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-400">Started</span>
+                    <span class="text-xs">{{ job.created_at[:19] if job.created_at else "—" }}</span>
+                </div>
+                {% if job.completed_at %}
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-400">Completed</span>
+                    <span class="text-xs">{{ job.completed_at[:19] }}</span>
+                </div>
+                {% endif %}
+                {% if job.error %}
+                <div class="mt-2 p-2 bg-red-900/30 border border-red-800 rounded text-xs text-red-300">
+                    {{ job.error }}
+                </div>
+                {% endif %}
+            </div>
+
+            {% if job.status == "running" %}
+            <button onclick="stopRalphJob('{{ job.job_id }}')" class="w-full mt-4 py-2 bg-red-800 hover:bg-red-700 rounded font-medium transition-colors">
+                Stop Job
+            </button>
+            {% endif %}
+        </div>
+
+        <!-- Artifacts -->
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+            <h2 class="text-lg font-semibold mb-4">Artifacts</h2>
+            <div id="artifacts-list">
+                {% if artifacts %}
+                <ul class="space-y-1">
+                    {% for a in artifacts %}
+                    <li>
+                        <a href="/api/ralph/jobs/{{ job.job_id }}/artifacts/{{ a.name }}"
+                           target="_blank"
+                           class="text-sm text-blue-400 hover:text-blue-300 flex items-center justify-between">
+                            <span>{{ a.name }}</span>
+                            <span class="text-xs text-gray-500">{{ (a.size / 1024) | round(1) }}KB</span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-gray-500 text-sm">No artifacts yet</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Main: Progress + Output -->
+    <div class="lg:col-span-2 space-y-6">
+        <!-- Progress Section -->
+        <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-2 bg-gray-750 border-b border-gray-700">
+                <h2 class="text-sm font-semibold text-gray-300">Progress</h2>
+                <span id="progress-status" class="text-xs text-gray-500">
+                    {% if job.status == "running" %}polling...{% else %}{{ job.status }}{% endif %}
+                </span>
+            </div>
+            <div id="progress-terminal" class="terminal-output p-4 h-[400px] overflow-y-auto font-mono text-sm leading-relaxed">
+                {% if progress_lines %}
+                    {% for line in progress_lines %}
+                    <div>{{ line }}</div>
+                    {% endfor %}
+                {% else %}
+                <div class="text-gray-500">No progress data yet...</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Output Log Section -->
+        <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-2 bg-gray-750 border-b border-gray-700">
+                <h2 class="text-sm font-semibold text-gray-300">Output Log</h2>
+                <button onclick="toggleOutputLog()" id="output-toggle" class="text-xs text-gray-500 hover:text-gray-300">Show</button>
+            </div>
+            <div id="output-terminal" class="terminal-output p-4 h-[400px] overflow-y-auto font-mono text-sm leading-relaxed hidden">
+                <div class="text-gray-500">Loading output log...</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const JOB_ID = '{{ job.job_id }}';
+const JOB_STATUS = '{{ job.status }}';
+let outputLoaded = false;
+let progressTimer = null;
+
+// Poll progress for running jobs
+if (JOB_STATUS === 'running') {
+    pollProgress();
+    progressTimer = setInterval(pollProgress, 3000);
+}
+
+async function pollProgress() {
+    try {
+        const resp = await fetch(`/api/ralph/jobs/${JOB_ID}/progress`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const terminal = document.getElementById('progress-terminal');
+        if (!terminal || !data.lines.length) return;
+
+        terminal.innerHTML = data.lines.map(line => {
+            let cls = '';
+            if (line.includes('ITERATION')) cls = 'line-iteration';
+            else if (line.includes('Error') || line.includes('FAIL')) cls = 'line-error';
+            else if (line.includes('complete') || line.includes('PASS')) cls = 'line-success';
+            return `<div class="${cls}">${escapeHtml(line)}</div>`;
+        }).join('');
+        terminal.scrollTop = terminal.scrollHeight;
+
+        // Also refresh status
+        const statusResp = await fetch(`/api/ralph/jobs/${JOB_ID}`);
+        if (statusResp.ok) {
+            const job = await statusResp.json();
+            document.getElementById('job-iteration').textContent =
+                `${job.current_iteration || 0} / ${job.iterations}`;
+            if (job.status !== 'running' && progressTimer) {
+                clearInterval(progressTimer);
+                document.getElementById('progress-status').textContent = job.status;
+                // Refresh page to update all status elements
+                window.location.reload();
+            }
+        }
+    } catch(e) { /* ignore poll errors */ }
+}
+
+function toggleOutputLog() {
+    const terminal = document.getElementById('output-terminal');
+    const toggle = document.getElementById('output-toggle');
+    if (terminal.classList.contains('hidden')) {
+        terminal.classList.remove('hidden');
+        toggle.textContent = 'Hide';
+        if (!outputLoaded) loadOutputLog();
+    } else {
+        terminal.classList.add('hidden');
+        toggle.textContent = 'Show';
+    }
+}
+
+async function loadOutputLog() {
+    try {
+        const resp = await fetch(`/api/ralph/jobs/${JOB_ID}/output`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const terminal = document.getElementById('output-terminal');
+        if (!data.lines.length) {
+            terminal.innerHTML = '<div class="text-gray-500">No output yet</div>';
+            return;
+        }
+        terminal.innerHTML = data.lines.map(line => {
+            let cls = '';
+            if (line.includes('Error') || line.includes('FAIL')) cls = 'line-error';
+            else if (line.includes('complete') || line.includes('PASS')) cls = 'line-success';
+            return `<div class="${cls}">${escapeHtml(line)}</div>`;
+        }).join('');
+        terminal.scrollTop = terminal.scrollHeight;
+        outputLoaded = true;
+    } catch(e) { /* ignore */ }
+}
+
+async function stopRalphJob(jobId) {
+    if (!confirm('Stop this ralph job?')) return;
+    try {
+        const resp = await fetch(`/api/ralph/jobs/${jobId}/stop`, {method: 'POST'});
+        if (!resp.ok) {
+            const data = await resp.json().catch(() => ({}));
+            throw new Error(data.detail || `HTTP ${resp.status}`);
+        }
+        window.location.reload();
+    } catch(e) {
+        alert('Failed to stop job: ' + e.message);
+    }
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

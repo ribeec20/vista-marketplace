@@ -1,0 +1,88 @@
+flowchart TD
+    %% TDD: SandboxJobCreator — sandbox branch of create_job()
+    %% Full flow from sandbox=true to running container with job.json persisted
+
+    %% Inputs
+    INPUT_TASK["Input: task: str<br/>the user's task description"]
+    INPUT_PROVIDER["Input: provider: str<br/>'claude' | 'opencode'"]
+    INPUT_MODEL["Input: model: str<br/>e.g. 'opus', 'sonnet'"]
+    INPUT_MODE["Input: mode: str<br/>'plan' | 'build'"]
+    INPUT_ITERS["Input: max_iterations: int<br/>0=unlimited, >0=capped"]
+    INPUT_SANDBOX["Input: sandbox: bool<br/>must be True for this flow"]
+    INPUT_FEATURE["Input: feature_dir: str<br/>path to .vista/features/{name}"]
+
+    INPUT_TASK --> CHECK_SANDBOX
+    INPUT_PROVIDER --> GEN_SCRIPT
+    INPUT_MODEL --> GEN_SCRIPT
+    INPUT_MODE --> GEN_SCRIPT
+    INPUT_ITERS --> GEN_SCRIPT
+    INPUT_SANDBOX --> CHECK_SANDBOX
+    INPUT_FEATURE --> CREATE_JOB_DIR
+
+    %% Gate: confirm sandbox requested
+    CHECK_SANDBOX{sandbox == true?}
+    CHECK_SANDBOX -->|No| NATIVE_PATH["Delegate to native create_job()<br/>(existing code path, not tested here)"]
+    CHECK_SANDBOX -->|Yes| CHECK_DOCKER
+
+    %% Step 1: Verify Docker
+    CHECK_DOCKER["ContainerManager.check_docker_available()"]
+    CHECK_DOCKER --> DOCKER_OK{Docker daemon<br/>reachable?}
+    DOCKER_OK -->|No| ERR_NO_DOCKER["Raise DockerNotAvailableError<br/>'Docker is not available.<br/>Install Docker Desktop or start the daemon.'"]
+    DOCKER_OK -->|Yes| ENSURE_IMAGE
+
+    %% Step 2: Ensure image
+    ENSURE_IMAGE["ContainerManager.ensure_image()"]
+    ENSURE_IMAGE --> IMAGE_OK{Image available<br/>(existing or built)?}
+    IMAGE_OK -->|No| ERR_IMAGE["Raise ImageBuildError<br/>'Failed to build vista-ralph image.<br/>See build logs.'"]
+    IMAGE_OK -->|Yes| CREATE_JOB_DIR
+
+    %% Step 3: Create job directory + files
+    CREATE_JOB_DIR["Create job directory:<br/>.vista/ralph/{job_id}/<br/>Write: task.md, PROMPT_{mode}.md"]
+    CREATE_JOB_DIR --> GEN_SCRIPT
+
+    %% Step 4: Generate bash loop script
+    GEN_SCRIPT["BashLoopGenerator.generate(<br/>  provider, model, mode,<br/>  max_iterations, feature_dir,<br/>  project_root='/workspace')"]
+    GEN_SCRIPT --> SCRIPT_OK{Script generated<br/>successfully?}
+    SCRIPT_OK -->|No| ERR_SCRIPT["Raise ScriptGenerationError<br/>'Failed to generate loop.sh'"]
+    SCRIPT_OK -->|Yes| WRITE_SCRIPT
+
+    WRITE_SCRIPT["Write loop.sh to job directory:<br/>.vista/ralph/{job_id}/loop.sh<br/>(will be visible inside container<br/>via project mount)"]
+    WRITE_SCRIPT --> RESOLVE_CREDS
+
+    %% Step 5: Resolve credential mounts
+    RESOLVE_CREDS["CredentialMounter.get_mounts(host_os)"]
+    RESOLVE_CREDS --> BUILD_MOUNTS
+
+    %% Step 6: Build complete mount list
+    BUILD_MOUNTS["Combine mounts:<br/>1. Project mount: {project_root} → /workspace (rw)<br/>2. Credential mounts: [...] (ro)<br/>All resolved by CredentialMounter"]
+    BUILD_MOUNTS --> CREATE_CONTAINER
+
+    %% Step 7: Create container
+    CREATE_CONTAINER["ContainerManager.create_and_start(<br/>  image='vista-ralph:latest',<br/>  mounts=all_mounts,<br/>  labels={'managed-by': 'vista',<br/>          'vista-job-id': job_id},<br/>  command=['bash', '/workspace/.vista/ralph/{job_id}/loop.sh'])"]
+    CREATE_CONTAINER --> CONTAINER_OK{Container created<br/>and started?}
+    CONTAINER_OK -->|No, create fails| ERR_CREATE["Raise ContainerCreateError<br/>'Failed to create sandbox container'<br/>Clean up job directory"]
+    CONTAINER_OK -->|No, start fails| ERR_START["Raise ContainerStartError<br/>'Container created but failed to start'<br/>Attempt container.remove(force=True)<br/>Clean up job directory"]
+    CONTAINER_OK -->|Yes| PERSIST_JOB
+
+    %% Step 8: Persist job.json
+    PERSIST_JOB["Write job.json:<br/>{<br/>  job_id, task, provider, model,<br/>  mode, max_iterations, sandbox: true,<br/>  container_id, status: 'running',<br/>  created_at, image, expires_at<br/>}"]
+    PERSIST_JOB --> OUTPUT
+
+    %% Output
+    OUTPUT["Return: JobResult(<br/>  job_id: str,<br/>  container_id: str,<br/>  status: 'running',<br/>  sandbox: True)"]
+
+    %% Styling
+    style INPUT_TASK fill:#26c,color:#fff
+    style INPUT_PROVIDER fill:#26c,color:#fff
+    style INPUT_MODEL fill:#26c,color:#fff
+    style INPUT_MODE fill:#26c,color:#fff
+    style INPUT_ITERS fill:#26c,color:#fff
+    style INPUT_SANDBOX fill:#26c,color:#fff
+    style INPUT_FEATURE fill:#26c,color:#fff
+    style OUTPUT fill:#4a4,color:#fff
+    style NATIVE_PATH fill:#888,color:#fff
+    style ERR_NO_DOCKER fill:#f44,color:#fff
+    style ERR_IMAGE fill:#f44,color:#fff
+    style ERR_SCRIPT fill:#f44,color:#fff
+    style ERR_CREATE fill:#f44,color:#fff
+    style ERR_START fill:#f44,color:#fff

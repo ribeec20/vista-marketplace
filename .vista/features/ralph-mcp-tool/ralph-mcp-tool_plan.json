@@ -1,0 +1,414 @@
+{
+  "meta": {
+    "feature": "ralph-mcp-tool",
+    "version": 1,
+    "created": "2026-02-10T00:00:00Z",
+    "lastModified": "2026-02-10T00:00:00Z",
+    "status": "draft",
+    "description": "Expose ralph loop operations as MCP tools with unified settings, live provider/model discovery with cost/best-for metadata, async job management, AI summarizer, dashboard integration, and settings UI page"
+  },
+  "sections": {
+    "architecture": {
+      "ref": "./arch/_arch.json"
+    },
+    "implementationPhases": {
+      "phases": [
+        {
+          "id": "phase-1",
+          "name": "Settings Extension",
+          "description": "Extend vista/settings.json with the ralph configuration section and add settings loading/filtering logic to the config and provider services",
+          "order": 1,
+          "dependencies": [],
+          "tasks": [
+            {
+              "name": "Define ralph settings schema with model metadata",
+              "description": "Add the 'ralph' section to settings.json with defaults, summarizer config, per-provider model filtering (models_allowed/models_blocked), and per-model metadata (cost_tier, best_for_tags, best_for_notes). Cost tiers: free/cheap/moderate/expensive. Best-for tags from curated list plus freeform notes. All informational — LLM uses judgment, no hard rules enforced.",
+              "files": [
+                "vista/settings.json"
+              ]
+            },
+            {
+              "name": "Add settings loading functions",
+              "description": "Add get_ralph_settings(), get_ralph_defaults(), get_summarizer_config() to the config module. Handle missing/partial ralph section gracefully with sensible defaults.",
+              "files": [
+                "vista/server/config.py"
+              ]
+            },
+            {
+              "name": "Extend provider service with ralph context filtering and metadata",
+              "description": "Add get_ralph_providers() that: (1) calls provider.get_models() for LIVE discovery (same as ralph.py line 295), (2) applies models_allowed/models_blocked filtering from settings, (3) enriches each model with cost_tier, best_for_tags, best_for_notes metadata from settings. Both top-level and ralph.providers must be enabled. Models not in get_models() output are silently ignored even if in settings.",
+              "files": [
+                "vista/server/services/provider_service.py"
+              ]
+            },
+            {
+              "name": "Add get_summarizer_command to Provider base class",
+              "description": "Add method to Provider base class and implement in ClaudeProvider and OpenCodeProvider for spawning summarizer subprocess with specific model.",
+              "files": [
+                "vista/server/services/provider_service.py"
+              ]
+            },
+            {
+              "name": "Write settings tests",
+              "description": "Unit tests for filtering logic (allowlist, blocklist, both levels, missing section, empty arrays, invalid config), defaults resolution, and summarizer config loading.",
+              "files": [
+                "vista/tests/test_ralph_settings.py"
+              ]
+            }
+          ],
+          "acceptanceCriteria": [
+            "get_ralph_providers() calls provider.get_models() live (same as ralph.py) — never hardcoded",
+            "get_ralph_providers() returns only providers enabled at both levels",
+            "Per-model allowlist intersects with live models (only allowed models that actually exist)",
+            "Per-model blocklist subtracts from live models (excludes blocked models)",
+            "Allowlist takes precedence when both allowlist and blocklist present",
+            "Models not in get_models() output are silently ignored even if in settings",
+            "Each model enriched with cost_tier, best_for_tags, best_for_notes from metadata",
+            "Models without metadata get null cost_tier and empty arrays",
+            "Missing ralph section falls back to top-level providers with all models, no metadata",
+            "get_ralph_defaults() returns configured or default values",
+            "get_summarizer_config() returns configured provider and model",
+            "save_ralph_settings() writes back to settings.json preserving other sections",
+            "All settings tests pass"
+          ]
+        },
+        {
+          "id": "phase-2",
+          "name": "Job Management Service",
+          "description": "Create the RalphService that handles job lifecycle, directory structure, subprocess spawning, and state management",
+          "order": 2,
+          "dependencies": ["phase-1"],
+          "tasks": [
+            {
+              "name": "Create RalphService class",
+              "description": "New service with create_job(), get_job(), get_job_status(), stop_job(), list_jobs(), find_job_by_slug() methods. Job state persisted to job.json files in .vista/ralph/{slug}/ directories.",
+              "files": [
+                "vista/server/services/ralph_service.py"
+              ]
+            },
+            {
+              "name": "Implement job directory creation",
+              "description": "create_job() creates .vista/ralph/{slug}/ with job.json, task.md (from task_description), and generates PROMPT_{mode}.md from existing portable templates. Handles duplicate slug detection (error if active job, rename old job.json if completed).",
+              "files": [
+                "vista/server/services/ralph_service.py"
+              ]
+            },
+            {
+              "name": "Implement subprocess spawning (reuse ralph.py exactly)",
+              "description": "Import LOOP_SCRIPT_TEMPLATE and get_prompt_content from portable/ralph.py. Generate loop script via LOOP_SCRIPT_TEMPLATE.format() with provider.get_invocation('ps1') — identical to ralph.py lines 208-218. Run via subprocess.Popen(['powershell', '-ExecutionPolicy', 'Bypass', '-File', ...]) with stdin=DEVNULL, stdout to output.log. Same cwd, same flags, same template — only difference is Popen (non-blocking) instead of run (blocking).",
+              "files": [
+                "vista/server/services/ralph_service.py"
+              ]
+            },
+            {
+              "name": "Implement PID-based status checking",
+              "description": "get_job_status() reads job.json, checks if PID is alive (platform-specific: os.kill(pid,0) on Unix, ctypes/psutil on Windows), reads tail of progress.txt, parses current iteration. Updates job.json status to 'failed' or 'completed' if PID is dead.",
+              "files": [
+                "vista/server/services/ralph_service.py"
+              ]
+            },
+            {
+              "name": "Implement job stop",
+              "description": "stop_job() sends termination signal to subprocess (SIGTERM on Unix, TerminateProcess on Windows), waits briefly, updates job.json status to 'stopped'.",
+              "files": [
+                "vista/server/services/ralph_service.py"
+              ]
+            },
+            {
+              "name": "Implement prompt template generation",
+              "description": "Read existing templates from vista/portable/templates/PROMPT_plan.md and PROMPT_build.md. Adapt for ad-hoc context: replace specs/ references with task.md, inject correct paths for .vista/ralph/{slug}/ working directory.",
+              "files": [
+                "vista/server/services/ralph_service.py"
+              ]
+            },
+            {
+              "name": "Write job management tests",
+              "description": "Unit tests for job creation, status checking, PID verification (mocked), duplicate slug handling, stop behavior, prompt generation. Integration test for create->status->stop lifecycle.",
+              "files": [
+                "vista/tests/test_ralph_service.py"
+              ]
+            }
+          ],
+          "acceptanceCriteria": [
+            "create_job() creates correct directory structure with all required files",
+            "create_job() spawns subprocess and returns within 5 seconds",
+            "get_job_status() returns accurate status based on PID check",
+            "get_job_status() reads last N lines from progress.txt",
+            "get_job_status() returns within 1 second",
+            "stop_job() terminates subprocess and updates status",
+            "Duplicate slug with active job returns error",
+            "Duplicate slug with completed job creates new job, preserves old",
+            "Job state persists across service restarts (read from disk)",
+            "Prompt templates are correctly adapted for ad-hoc context",
+            "All job management tests pass"
+          ]
+        },
+        {
+          "id": "phase-3",
+          "name": "Summarizer Agent",
+          "description": "Implement the summarizer that reads job artifacts and produces AI-generated summaries via a configurable CLI subprocess",
+          "order": 3,
+          "dependencies": ["phase-1", "phase-2"],
+          "tasks": [
+            {
+              "name": "Implement summarizer prompt builder",
+              "description": "Build the summarizer prompt from job artifacts: task.md, progress.txt (last 100 lines), IMPLEMENTATION_PLAN.md (first 500 lines), git log --oneline. Handle missing/empty files gracefully.",
+              "files": [
+                "vista/server/services/summarizer_service.py"
+              ]
+            },
+            {
+              "name": "Implement summarizer subprocess invocation",
+              "description": "Spawn CLI subprocess using configured provider/model. Pipe prompt via stdin, capture stdout. 55-second timeout (buffer for MCP 60s limit). Kill subprocess on timeout.",
+              "files": [
+                "vista/server/services/summarizer_service.py"
+              ]
+            },
+            {
+              "name": "Implement output parsing",
+              "description": "Parse JSON from summarizer output. Handle edge cases: non-JSON output (return raw text fallback), partial JSON, empty output. Extract status_summary, completed_work, in_progress, issues, recommendations, key_files_changed.",
+              "files": [
+                "vista/server/services/summarizer_service.py"
+              ]
+            },
+            {
+              "name": "Write summarizer tests",
+              "description": "Unit tests for prompt building (various artifact states), output parsing (valid JSON, malformed, empty), truncation logic. Integration test with mocked CLI subprocess.",
+              "files": [
+                "vista/tests/test_summarizer_service.py"
+              ]
+            }
+          ],
+          "acceptanceCriteria": [
+            "Summarizer prompt includes all available artifacts with correct truncation",
+            "Summarizer uses configured provider and model from settings",
+            "Summarizer subprocess times out at 55 seconds and is killed",
+            "Valid JSON output is parsed into structured summary",
+            "Malformed output falls back to raw text response",
+            "Missing artifacts are handled gracefully (not crash)",
+            "All summarizer tests pass"
+          ]
+        },
+        {
+          "id": "phase-4",
+          "name": "MCP Tool Registration",
+          "description": "Register the 5 ralph MCP tools in vista/mcp_server.py and wire them to the services",
+          "order": 4,
+          "dependencies": ["phase-1", "phase-2", "phase-3"],
+          "tasks": [
+            {
+              "name": "Register ralph_providers tool",
+              "description": "Add @mcp.tool() decorated function in mcp_server.py. Calls get_ralph_providers() which discovers models LIVE via provider.get_models(), filters, and enriches with cost_tier/best_for metadata. Returns JSON with providers (including per-model metadata), defaults, summarizer config. LLM uses metadata to autonomously pick the best model for the task.",
+              "files": [
+                "vista/mcp_server.py"
+              ]
+            },
+            {
+              "name": "Register ralph_start tool",
+              "description": "Add @mcp.tool() decorated function. Validates parameters, resolves defaults from settings, calls RalphService.create_job(). Returns job_id and status JSON.",
+              "files": [
+                "vista/mcp_server.py"
+              ]
+            },
+            {
+              "name": "Register ralph_status tool",
+              "description": "Add @mcp.tool() decorated function. Calls RalphService.get_job_status(). Returns lightweight status JSON.",
+              "files": [
+                "vista/mcp_server.py"
+              ]
+            },
+            {
+              "name": "Register ralph_summary tool",
+              "description": "Add @mcp.tool() decorated function. Calls SummarizerService.summarize(). Returns structured summary JSON.",
+              "files": [
+                "vista/mcp_server.py"
+              ]
+            },
+            {
+              "name": "Register ralph_stop tool",
+              "description": "Add @mcp.tool() decorated function. Calls RalphService.stop_job(). Returns confirmation JSON.",
+              "files": [
+                "vista/mcp_server.py"
+              ]
+            },
+            {
+              "name": "Initialize services in MCP lifespan",
+              "description": "Instantiate RalphService and SummarizerService in the _vista_lifespan context manager. Pass project root path. Make services available to tool functions.",
+              "files": [
+                "vista/mcp_server.py"
+              ]
+            },
+            {
+              "name": "Write MCP tool integration tests",
+              "description": "End-to-end tests for each tool: ralph_providers returns filtered data, ralph_start creates job, ralph_status returns progress, ralph_summary returns summary, ralph_stop terminates job. Full lifecycle test: providers -> start -> poll -> summary -> stop.",
+              "files": [
+                "vista/tests/test_ralph_mcp_tools.py"
+              ]
+            }
+          ],
+          "acceptanceCriteria": [
+            "All 5 tools are discoverable by MCP clients",
+            "Tool descriptions are clear and informative (from docstrings)",
+            "Tool parameter types are correct in JSON schema",
+            "ralph_providers returns filtered provider/model data",
+            "ralph_start creates job and returns within 5 seconds",
+            "ralph_status returns within 1 second",
+            "ralph_summary returns structured summary within 60 seconds",
+            "ralph_stop terminates running job",
+            "Error cases return clear JSON error messages (not exceptions)",
+            "Full lifecycle test passes: providers -> start(plan) -> poll -> summary -> start(build) -> poll -> summary"
+          ]
+        },
+        {
+          "id": "phase-5",
+          "name": "Dashboard Integration",
+          "description": "Add ralph job monitoring to the Vista web dashboard with API endpoints and UI views",
+          "order": 5,
+          "dependencies": ["phase-2"],
+          "tasks": [
+            {
+              "name": "Create ralph API routes",
+              "description": "Add REST API endpoints: GET /api/ralph/jobs, GET /api/ralph/jobs/{job_id}, GET /api/ralph/jobs/{job_id}/progress, GET /api/ralph/jobs/{job_id}/output, GET /api/ralph/jobs/{job_id}/artifacts, GET /api/ralph/jobs/{job_id}/artifacts/{filename}, POST /api/ralph/jobs/{job_id}/stop. Wire to RalphService.",
+              "files": [
+                "vista/server/routes/ralph.py"
+              ]
+            },
+            {
+              "name": "Register ralph routes in FastAPI app",
+              "description": "Include the ralph router in the FastAPI app. Follow existing patterns from loops.py route registration.",
+              "files": [
+                "vista/server/app.py"
+              ]
+            },
+            {
+              "name": "Create ralph jobs list view",
+              "description": "HTML template for ralph job list table with slug, mode, provider, model, status indicators, and timestamps. Auto-refresh for running jobs. Link to job detail view.",
+              "files": [
+                "vista/server/views/ralph_jobs.html"
+              ]
+            },
+            {
+              "name": "Create ralph job detail view",
+              "description": "HTML template for job detail page: metadata header, progress section with auto-scroll, artifact file listing with click-to-view, stop button for running jobs.",
+              "files": [
+                "vista/server/views/ralph_job_detail.html"
+              ]
+            },
+            {
+              "name": "Add ralph section to dashboard navigation",
+              "description": "Add ralph jobs link to the dashboard navigation/sidebar. Update project page to show ralph job count.",
+              "files": [
+                "vista/server/views/_base.html",
+                "vista/server/views/project.html"
+              ]
+            },
+            {
+              "name": "Add ralph-specific CSS and JavaScript",
+              "description": "Status indicator colors (blue=running, green=completed, red=failed, gray=stopped). Progress auto-refresh polling. Artifact file viewer modal or inline display.",
+              "files": [
+                "vista/server/views/static/style.css",
+                "vista/server/views/static/app.js"
+              ]
+            },
+            {
+              "name": "Write dashboard API tests",
+              "description": "Test all ralph API endpoints: list, detail, progress, output, artifacts, stop. Test 404 for nonexistent jobs. Test empty job list.",
+              "files": [
+                "vista/tests/test_ralph_api.py"
+              ]
+            }
+          ],
+          "acceptanceCriteria": [
+            "GET /api/ralph/jobs returns all jobs with correct metadata",
+            "GET /api/ralph/jobs/{job_id} returns full job detail",
+            "GET /api/ralph/jobs/{job_id}/progress returns progress.txt content",
+            "GET /api/ralph/jobs/{job_id}/artifacts lists all files",
+            "POST /api/ralph/jobs/{job_id}/stop terminates running job",
+            "404 returned for nonexistent job IDs",
+            "Job list view renders in browser with correct status indicators",
+            "Job detail view shows progress and artifacts",
+            "Auto-refresh updates status for running jobs",
+            "Dashboard navigation includes ralph jobs link",
+            "All dashboard API tests pass"
+          ]
+        },
+        {
+          "id": "phase-6",
+          "name": "Settings UI Page",
+          "description": "Dashboard page for managing ralph settings through a friendly UI with live model discovery, provider/model toggles, cost tier dropdowns, and best-for tag selection",
+          "order": 6,
+          "dependencies": ["phase-1", "phase-5"],
+          "tasks": [
+            {
+              "name": "Create settings API endpoints",
+              "description": "Add GET /api/settings/ralph (returns saved settings merged with live model lists from provider.get_models()), PUT /api/settings/ralph (saves ralph config back to settings.json preserving other sections), GET /api/settings/ralph/models (refresh-only live model discovery). The GET endpoint must include live_models from provider.get_models() alongside saved models_allowed/models_blocked/model_metadata.",
+              "files": [
+                "vista/server/routes/settings.py"
+              ]
+            },
+            {
+              "name": "Register settings routes in FastAPI app",
+              "description": "Include the settings router in the FastAPI app.",
+              "files": [
+                "vista/server/app.py"
+              ]
+            },
+            {
+              "name": "Create settings page HTML template",
+              "description": "Page at /settings/ralph with sections: Defaults (cascading provider/model dropdowns, iterations input), Summarizer (provider/model dropdowns), Providers & Models (per-provider enable toggle, per-model table with Allowed checkbox, Cost Tier dropdown [free/cheap/moderate/expensive], Best For Tags multi-select from predefined list, Best For Notes freeform text input). Save button writes to settings.json. Model table rows populated from live API data, never hardcoded.",
+              "files": [
+                "vista/server/views/ralph_settings.html"
+              ]
+            },
+            {
+              "name": "Implement settings page JavaScript",
+              "description": "Cascading dropdowns (changing default provider updates default model dropdown with live models). Multi-select for best_for_tags from predefined list. Dirty form detection (unsaved changes indicator). Save via PUT /api/settings/ralph with success/error toast. Refresh Models button calls GET /api/settings/ralph/models to re-discover without page reload. Loading state while fetching live models.",
+              "files": [
+                "vista/server/views/static/app.js"
+              ]
+            },
+            {
+              "name": "Add settings page CSS",
+              "description": "Styles for the settings form: model tables, multi-select tag chips, cost tier dropdown colors, provider sections, save button states, unsaved changes indicator, warning badges for CLI-not-found and stale metadata.",
+              "files": [
+                "vista/server/views/static/style.css"
+              ]
+            },
+            {
+              "name": "Add settings link to dashboard navigation",
+              "description": "Add Ralph Settings link to the dashboard sidebar/navigation alongside the Ralph Jobs link.",
+              "files": [
+                "vista/server/views/_base.html"
+              ]
+            },
+            {
+              "name": "Write settings API tests",
+              "description": "Tests for GET (returns merged live + saved data), PUT (saves correctly, preserves other sections), PUT validation (rejects invalid cost_tier, invalid provider references). Edge cases: missing CLI, stale metadata, empty settings, concurrent save.",
+              "files": [
+                "vista/tests/test_ralph_settings_api.py"
+              ]
+            }
+          ],
+          "acceptanceCriteria": [
+            "GET /api/settings/ralph returns live_models from provider.get_models() for each provider",
+            "GET /api/settings/ralph returns saved models_allowed, models_blocked, model_metadata overlaid",
+            "GET /api/settings/ralph returns available_tags list of predefined best-for tags",
+            "PUT /api/settings/ralph saves config and preserves non-ralph sections in settings.json",
+            "Settings page model tables populated from live API data, never hardcoded",
+            "Provider enable/disable toggles work and reflect in ralph_providers MCP tool",
+            "Per-model Allowed checkboxes control models_allowed list",
+            "Cost tier dropdown saves correctly per model (free/cheap/moderate/expensive)",
+            "Best-for tags multi-select saves from predefined list per model",
+            "Best-for notes freeform text saves per model",
+            "Cascading dropdowns update model list when provider changes",
+            "Refresh Models button re-discovers without page reload",
+            "Unsaved changes indicator shows when form is dirty",
+            "Warning shown when provider CLI is not installed (empty model list)",
+            "Warning shown for stale metadata (model in settings but not in live_models)",
+            "All settings API tests pass"
+          ]
+        }
+      ]
+    }
+  }
+}

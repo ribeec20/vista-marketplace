@@ -1,0 +1,63 @@
+flowchart TD
+    Start([User opens architecture page]) --> LoadDiagrams[Load diagram grid<br/>from _arch.json manifest]
+    LoadDiagrams --> CheckServices{Check service<br/>health status}
+
+    CheckServices -->|"All healthy"| ShowReady[Show all providers<br/>available in dropdown]
+    CheckServices -->|"Some down"| ShowDegraded[Disable unavailable<br/>providers, show warning]
+    CheckServices -->|"All down"| ShowOffline[Show chat unavailable<br/>message]
+
+    ShowReady --> OpenChat[User clicks chat FAB<br/>to open panel]
+    ShowDegraded --> OpenChat
+
+    OpenChat --> SelectProvider[Select provider<br/>Claude / OpenCode]
+    SelectProvider --> SelectModel[Select model from<br/>provider's available models]
+    SelectModel --> LoadSession{Previous session<br/>for this feature?}
+
+    LoadSession -->|"Yes"| PickSession[Show session picker<br/>New / Load existing]
+    LoadSession -->|"No"| NewSession[Create new session]
+    PickSession -->|"New"| NewSession
+    PickSession -->|"Load"| RestoreSession[Load session history<br/>from disk]
+
+    NewSession --> ChatReady[Chat ready<br/>Input enabled]
+    RestoreSession --> ChatReady
+
+    ChatReady --> AttachDiagrams[Click diagram cards<br/>to attach to context]
+    AttachDiagrams --> SelectNodes[Optionally select<br/>specific diagram nodes]
+    SelectNodes --> TypeMessage[Type message<br/>in chat input]
+    TypeMessage --> SendMessage[Send message]
+
+    SendMessage --> AssembleContext[Vista backend assembles:<br/>system prompt + diagram context<br/>+ selected elements + history]
+    AssembleContext --> RouteProvider{Which provider?}
+
+    RouteProvider -->|"Claude"| SendWSBridge[Send via WebSocket<br/>to Companion bridge]
+    RouteProvider -->|"OpenCode"| SendREST[POST to OpenCode<br/>server API]
+
+    SendWSBridge --> StreamTokens[Stream tokens<br/>via SSE to browser]
+    SendREST --> StreamTokens
+
+    StreamTokens --> RenderChat[Render streaming<br/>text in chat bubble]
+    StreamTokens --> AIEditsDiagram{AI edits<br/>diagram file?}
+
+    AIEditsDiagram -->|"Yes"| WatchdogDetects[watchdog detects<br/>file change]
+    AIEditsDiagram -->|"No"| MessageDone[Message complete]
+
+    WatchdogDetects --> UpdateManifest{New or deleted<br/>file?}
+    UpdateManifest -->|"Yes"| AutoUpdateManifest[Auto-update<br/>_arch.json]
+    UpdateManifest -->|"No"| BroadcastChange[Broadcast change<br/>via SSE]
+    AutoUpdateManifest --> BroadcastChange
+
+    BroadcastChange --> ReRenderDiagram[Frontend re-renders<br/>affected diagram card]
+    ReRenderDiagram --> MessageDone
+
+    MessageDone --> ChatReady
+
+    %% Styling
+    classDef action fill:#1e3a5f,stroke:#3b82f6,color:#e2e8f0
+    classDef decision fill:#2d1f4e,stroke:#8b5cf6,color:#e2e8f0
+    classDef event fill:#1a3a2a,stroke:#22c55e,color:#e2e8f0
+    classDef start fill:#1f2937,stroke:#6b7280,color:#e2e8f0
+
+    class Start,ShowOffline start
+    class CheckServices,LoadSession,RouteProvider,AIEditsDiagram,UpdateManifest decision
+    class WatchdogDetects,BroadcastChange,ReRenderDiagram,StreamTokens event
+    class OpenChat,SelectProvider,SelectModel,AttachDiagrams,SelectNodes,TypeMessage,SendMessage action

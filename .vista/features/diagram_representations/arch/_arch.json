@@ -1,0 +1,61 @@
+{
+  "feature": "diagram_representations",
+  "diagrams": [
+    {
+      "name": "System Architecture",
+      "file": "system-architecture.mmd",
+      "type": "mermaid",
+      "diagramType": "flowchart",
+      "category": "architecture",
+      "description": "Components across client, server, server-side renderers, storage (6 file types), and CLI providers. Updated for multi-format support (PlantUML, D2, Excalidraw, ASCII)"
+    },
+    {
+      "name": "User Flow",
+      "file": "user-flow.mmd",
+      "type": "mermaid",
+      "diagramType": "flowchart",
+      "category": "architecture",
+      "description": "Screen navigation and user journey through architecture viewer and AI chat panel (converted from old-format plan JSON)"
+    },
+    {
+      "name": "Data Model",
+      "file": "data-model.mmd",
+      "type": "mermaid",
+      "diagramType": "er",
+      "category": "architecture",
+      "description": "Entity-relationship diagram for ArchManifest, DiagramEntry (extended type enum), RenderConfig, RenderCacheEntry, ChatMessage, DiagramAttachment, and PlanJSON"
+    },
+    {
+      "name": "Diagram Rendering Flow",
+      "file": "sequence-render-diagrams.mmd",
+      "type": "mermaid",
+      "diagramType": "sequence",
+      "category": "architecture",
+      "description": "Full rendering sequence for all 6 diagram types, including client-rendered (Mermaid, Draw.io, Excalidraw, ASCII) and server-rendered (PlantUML, D2) with caching and fallback paths"
+    },
+    {
+      "name": "AI Chat Review Flow",
+      "file": "sequence-chat-review.mmd",
+      "type": "mermaid",
+      "diagramType": "sequence",
+      "category": "architecture",
+      "description": "Request/response sequence for the AI chat review panel including provider selection, diagram attachment, and CLI invocation (converted from old-format plan JSON)"
+    },
+    {
+      "name": "Agent Generation Flow",
+      "file": "sequence-agent-generation.mmd",
+      "type": "mermaid",
+      "diagramType": "sequence",
+      "category": "architecture",
+      "description": "Sequence for AI agent generating .mmd files and _arch.json during /vista:plan workflow (converted from old-format plan JSON)"
+    },
+    {
+      "name": "Renderer Dispatch Architecture",
+      "file": "renderer-dispatch.mmd",
+      "type": "mermaid",
+      "diagramType": "flowchart",
+      "category": "architecture",
+      "description": "How diagram entries are dispatched to the correct renderer by type field — client-rendered vs server-rendered paths with graceful fallback"
+    }
+  ]
+}

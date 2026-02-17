@@ -1,0 +1,22 @@
+flowchart TD
+    A[User opens Project Page] --> B[Clicks 'Export Documentation']
+    B --> C[Export Modal Opens]
+    C --> D{Features with content?}
+    D -->|No| E[Show 'No exportable features' message]
+    D -->|Yes| F[Display feature tree with checkboxes]
+    F --> G[User expands features to see diagrams]
+    G --> H[User checks/unchecks individual diagrams]
+    H --> I{At least one item selected?}
+    I -->|No| J[Download button disabled]
+    J --> H
+    I -->|Yes| K[Download button enabled]
+    K --> L[User clicks Download]
+    L --> M[Loading spinner shown]
+    M --> N[Server generates HTML]
+    N --> O{Generation successful?}
+    O -->|Yes| P[Browser downloads HTML file]
+    O -->|No| Q[Toast error notification]
+    P --> R[User opens HTML on any device]
+    R --> S[Diagrams render via Mermaid CDN]
+    S --> T[User navigates diagrams via card gallery]
+    T --> U[Click card to expand in modal]

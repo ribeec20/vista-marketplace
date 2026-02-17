@@ -1,0 +1,143 @@
+{% extends "_base.html" %}
+
+{% block title %}Dashboard - Ralph Loop{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-3xl font-bold mb-2">Projects</h1>
+</div>
+
+{% if error %}
+<div class="bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded mb-6">
+    {{ error }}
+</div>
+{% endif %}
+
+<!-- Register Project Form -->
+<div class="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-8">
+    <form id="register-form" class="flex gap-4">
+        <input type="text" id="project-path" placeholder="Absolute path to project root..."
+               class="flex-1 bg-gray-700 border border-gray-600 rounded px-4 py-2 text-gray-100 placeholder-gray-400 focus:outline-none focus:border-green-500">
+        <button type="submit" class="px-6 py-2 bg-green-700 hover:bg-green-600 rounded font-medium transition-colors">
+            Register Project
+        </button>
+    </form>
+    <div id="register-error" class="hidden mt-3 text-red-400 text-sm"></div>
+</div>
+
+<!-- Project Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for project in projects %}
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 hover:border-gray-600 transition-colors shadow-sm">
+        <div class="flex items-start justify-between mb-3 gap-2">
+            <h2 class="text-lg font-semibold text-white break-words flex-1">{{ project.name }}</h2>
+            {% if project.loop_status == "running" %}
+            <span class="px-2 py-1 text-xs rounded-full bg-green-900 text-green-300 border border-green-700 shrink-0">Running</span>
+            {% elif project.loop_status == "completed" %}
+            <span class="px-2 py-1 text-xs rounded-full bg-blue-900 text-blue-300 border border-blue-700 shrink-0">Completed</span>
+            {% elif project.loop_status == "failed" %}
+            <span class="px-2 py-1 text-xs rounded-full bg-red-900 text-red-300 border border-red-700 shrink-0">Failed</span>
+            {% elif project.loop_status == "stopped" %}
+            <span class="px-2 py-1 text-xs rounded-full bg-yellow-900 text-yellow-300 border border-yellow-700 shrink-0">Stopped</span>
+            {% else %}
+            <span class="px-2 py-1 text-xs rounded-full bg-gray-700 text-gray-400 border border-gray-600 shrink-0">Idle</span>
+            {% endif %}
+        </div>
+
+        <p class="text-sm text-gray-400 mb-4 break-all" title="{{ project.path }}">{{ project.path }}</p>
+
+        {% if project.loop_status == "running" %}
+        <div class="text-sm text-gray-300 mb-4">
+            <span class="text-green-400">Iteration {{ project.loop_iteration }}</span>
+            &middot; {{ project.loop_feature }} &middot; {{ project.loop_mode }}
+        </div>
+        {% endif %}
+
+        <div class="flex gap-2 flex-wrap">
+            <a href="/project/{{ project.id }}" class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">
+                View Details
+            </a>
+            {% if project.loop_status == "running" %}
+            <button onclick="stopLoop('{{ project.id }}')" class="px-3 py-1.5 bg-red-800 hover:bg-red-700 rounded text-sm transition-colors">
+                Stop
+            </button>
+            {% endif %}
+            <button onclick="deleteProject('{{ project.id }}', '{{ project.name }}', '{{ project.loop_status }}')"
+                    class="px-3 py-1.5 border border-gray-600 hover:border-red-600 text-gray-300 hover:text-red-300 rounded text-sm transition-colors">
+                Remove
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if not projects %}
+    <div class="col-span-full text-center py-12 text-gray-500">
+        <p class="text-lg mb-2">No projects registered</p>
+        <p class="text-sm">Register a project below to get started</p>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('register-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const path = document.getElementById('project-path').value.trim();
+    const errorEl = document.getElementById('register-error');
+    errorEl.classList.add('hidden');
+
+    if (!path) return;
+
+    try {
+        const resp = await fetch('/api/projects', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({path: path})
+        });
+        if (!resp.ok) {
+            const data = await resp.json();
+            throw new Error(data.detail || 'Registration failed');
+        }
+        window.location.reload();
+    } catch(err) {
+        errorEl.textContent = err.message;
+        errorEl.classList.remove('hidden');
+    }
+});
+
+async function stopLoop(projectId) {
+    if (currentEventSource) {
+        currentEventSource.close();
+        currentEventSource = null;
+    }
+    await fetch(`/api/projects/${projectId}/loop/stop`, {method: 'POST'});
+    window.location.reload();
+}
+
+async function deleteProject(projectId, projectName, loopStatus) {
+    let message = `Remove "${projectName}" from Vista project list?\n\nProject files on disk will NOT be deleted.`;
+    if (loopStatus === 'running' || loopStatus === 'starting') {
+        message = `"${projectName}" has an active loop. Stop it first, then remove project from Vista list?\n\nFiles on disk will NOT be deleted.`;
+    }
+    if (!confirm(message)) return;
+
+    if (loopStatus === 'running' || loopStatus === 'starting') {
+        await stopLoop(projectId);
+        return;
+    }
+
+    try {
+        const resp = await fetch(`/api/projects/${projectId}`, {method: 'DELETE'});
+        if (!resp.ok) {
+            const data = await resp.json();
+            throw new Error(data.detail || 'Failed to remove project');
+        }
+        window.location.reload();
+    } catch (err) {
+        alert(err.message);
+    }
+}
+</script>
+{% endblock %}

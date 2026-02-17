@@ -1,0 +1,45 @@
+flowchart TD
+    subgraph Dashboard["Vista Dashboard (localhost)"]
+        PP[Project Page]
+        EB[Export Button]
+        EM[Export Modal]
+        PP --> EB
+        EB --> EM
+    end
+
+    subgraph Server["FastAPI Backend"]
+        EA["/api/projects/{id}/export"]
+        HG[HTML Generator Service]
+        PS[Progress Service]
+        EA --> HG
+        HG --> PS
+    end
+
+    subgraph DataSources["Feature Data (.vista/)"]
+        AM["arch/_arch.json\n(manifest)"]
+        DF[".mmd diagram files"]
+        DR["domain-requirements.md"]
+    end
+
+    subgraph Output["Exported HTML File"]
+        VH[Vista Header + Branding]
+        FN[Feature Navigation]
+        DG[Diagram Card Gallery]
+        MO[Modal Overlay Viewer]
+        RQ[Requirements Section]
+    end
+
+    EM -->|"POST selected features\n& diagrams"| EA
+    PS --> AM
+    PS --> DF
+    PS --> DR
+    HG -->|"Jinja2 template\nrendering"| Output
+    EA -->|"Download response"| EM
+
+    subgraph CDN["Public CDN (jsdelivr)"]
+        TW[Tailwind CSS v4]
+        MJ[Mermaid.js v11]
+        MK[Marked.js v15]
+    end
+
+    Output -.->|"loads at\nview time"| CDN

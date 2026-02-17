@@ -1,0 +1,232 @@
+{
+  "meta": {
+    "feature": "diagram_representations",
+    "version": 1,
+    "created": "2026-02-10T12:00:00Z",
+    "lastModified": "2026-02-10T12:00:00Z",
+    "status": "draft",
+    "description": "Replace monolithic plan JSON diagrams with native .mmd/.drawio files in arch/ directory, rendered via mermaid.js and Draw.io viewer, with AI chat review panel"
+  },
+  "sections": {
+    "architecture": {
+      "ref": "./arch/_arch.json"
+    },
+    "implementationPhases": {
+      "phases": [
+        {
+          "id": "phase-1",
+          "name": "Schema & Scaffolding",
+          "description": "Update plan schema, create arch manifest schema, update setup-feature.py to scaffold arch/ directory.",
+          "order": 1,
+          "dependencies": [],
+          "tasks": [
+            {
+              "name": "Update plan-schema.json",
+              "description": "Remove required uiFlows, dataModels, dataFlow, services from sections. Add optional architecture object with ref field. Keep implementationPhases required.",
+              "files": ["vista/templates/plan-schema.json"]
+            },
+            {
+              "name": "Create arch-schema.json",
+              "description": "Define JSON schema for _arch.json manifest (feature, diagrams array with name/file/type/diagramType/description).",
+              "files": ["vista/templates/arch-schema.json"]
+            },
+            {
+              "name": "Update setup-feature.py",
+              "description": "Add arch/ directory creation and empty _arch.json scaffolding to feature setup script.",
+              "files": ["vista/scripts/setup-feature.py"]
+            }
+          ],
+          "acceptanceCriteria": [
+            "setup-feature.py creates arch/ directory and _arch.json",
+            "plan-schema.json validates plans without diagram sections",
+            "arch-schema.json validates _arch.json manifests"
+          ]
+        },
+        {
+          "id": "phase-2",
+          "name": "Server API for Architecture Files",
+          "description": "Add FastAPI routes to serve arch manifest and individual diagram files with path validation.",
+          "order": 2,
+          "dependencies": ["phase-1"],
+          "tasks": [
+            {
+              "name": "Create ArchitectureService",
+              "description": "New service class with methods to read manifest, validate it, read diagram files, and prevent path traversal.",
+              "files": ["vista/server/services/architecture_service.py"]
+            },
+            {
+              "name": "Create architecture routes",
+              "description": "GET /api/projects/{id}/features/{name}/arch (manifest) and GET /api/projects/{id}/features/{name}/arch/{filename} (file content).",
+              "files": ["vista/server/routes/architecture.py"]
+            },
+            {
+              "name": "Register routes in app.py",
+              "description": "Include the new architecture router in the FastAPI app.",
+              "files": ["vista/server/app.py"]
+            }
+          ],
+          "acceptanceCriteria": [
+            "GET /arch returns parsed _arch.json manifest",
+            "GET /arch/{filename} returns raw file content with correct Content-Type",
+            "Path traversal attempts return 400",
+            "Missing files return 404"
+          ]
+        },
+        {
+          "id": "phase-3",
+          "name": "Web App Diagram Rendering",
+          "description": "Create the architecture page that loads manifest and renders diagrams using mermaid.js and Draw.io viewer.",
+          "order": 3,
+          "dependencies": ["phase-2"],
+          "tasks": [
+            {
+              "name": "Create architecture page template",
+              "description": "New Jinja2 template for the architecture diagrams page. Includes mermaid.js CDN script, diagram card containers, and loading skeletons.",
+              "files": ["vista/server/views/architecture.html"]
+            },
+            {
+              "name": "Create diagram rendering JavaScript",
+              "description": "Client-side JS that reads manifest, fetches diagram files, dispatches to type-specific renderers. Renderer map: { mermaid: renderMermaid, drawio: renderDrawio }.",
+              "files": ["vista/server/views/static/diagrams.js"]
+            },
+            {
+              "name": "Add architecture page route",
+              "description": "GET /project/{id}/arch/{feature_name} page route that serves the template.",
+              "files": ["vista/server/routes/architecture.py"]
+            },
+            {
+              "name": "Add diagram styles",
+              "description": "CSS for diagram cards, loading skeletons, error placeholders, and responsive layout.",
+              "files": ["vista/server/views/static/style.css"]
+            }
+          ],
+          "acceptanceCriteria": [
+            "Mermaid .mmd files render as SVG in browser",
+            "Draw.io .drawio files render in embedded viewer",
+            "Each card shows title and description from manifest",
+            "Parse errors show inline with raw source",
+            "Missing files show placeholder",
+            "Page loads 5 diagrams in < 3s"
+          ]
+        },
+        {
+          "id": "phase-4",
+          "name": "AI Chat Service & API",
+          "description": "Build the server-side chat service that invokes CLI providers and streams responses via SSE.",
+          "order": 4,
+          "dependencies": ["phase-2"],
+          "tasks": [
+            {
+              "name": "Create ChatService",
+              "description": "Service that builds prompts from message + diagram context, invokes CLI subprocess, and yields stdout tokens as SSE events.",
+              "files": ["vista/server/services/chat_service.py"]
+            },
+            {
+              "name": "Create chat routes",
+              "description": "POST /api/chat/send accepts { provider, model, message, attachments }, returns SSE stream of response tokens.",
+              "files": ["vista/server/routes/chat.py"]
+            },
+            {
+              "name": "Register chat routes in app.py",
+              "description": "Include the new chat router in the FastAPI app.",
+              "files": ["vista/server/app.py"]
+            }
+          ],
+          "acceptanceCriteria": [
+            "POST /api/chat/send accepts message with diagram context",
+            "Server invokes selected CLI provider subprocess",
+            "Response streams as SSE events token-by-token",
+            "CLI errors surface as error SSE events",
+            "Subprocess cleaned up on disconnect"
+          ]
+        },
+        {
+          "id": "phase-5",
+          "name": "Chat Panel Frontend",
+          "description": "Build the client-side chat UI: toggle button, slide-out panel, provider/model dropdowns, message thread, diagram attachment.",
+          "order": 5,
+          "dependencies": ["phase-3", "phase-4"],
+          "tasks": [
+            {
+              "name": "Create chat panel JavaScript",
+              "description": "Client-side chat panel component: toggle button, slide-out animation, side-by-side layout reflow, provider/model dropdowns, message input with attachment chips, streaming response rendering.",
+              "files": ["vista/server/views/static/chat.js"]
+            },
+            {
+              "name": "Add chat panel markup to architecture template",
+              "description": "Add chat toggle button, panel container, and split-pane layout wrappers to architecture.html.",
+              "files": ["vista/server/views/architecture.html"]
+            },
+            {
+              "name": "Add chat panel styles",
+              "description": "CSS for chat panel, slide-out animation, side-by-side layout, message bubbles, attachment chips, streaming text.",
+              "files": ["vista/server/views/static/style.css"]
+            },
+            {
+              "name": "Wire diagram click-to-attach",
+              "description": "Add click handlers to rendered diagram cards that create attachment chips in the chat input when chat is open.",
+              "files": ["vista/server/views/static/diagrams.js"]
+            }
+          ],
+          "acceptanceCriteria": [
+            "Chat button visible bottom-right on architecture page",
+            "Panel slides out and page reflows to side-by-side",
+            "Provider/model dropdowns load from existing API",
+            "Clicking diagram creates attachment chip",
+            "Messages stream token-by-token from SSE",
+            "Chat thread shows user/AI messages with correct alignment",
+            "Responsive: overlays on narrow viewports"
+          ]
+        },
+        {
+          "id": "phase-6",
+          "name": "Migration & Cleanup",
+          "description": "Remove legacy diagram rendering, review system, and template generation. Update plan skill documentation.",
+          "order": 6,
+          "dependencies": ["phase-3", "phase-5"],
+          "tasks": [
+            {
+              "name": "Remove legacy SVG template",
+              "description": "Delete vista/scripts/visualizer/template.html (1,500+ lines of custom SVG rendering).",
+              "files": ["vista/scripts/visualizer/template.html"]
+            },
+            {
+              "name": "Remove review system",
+              "description": "Delete review-schema.json, collect-review.py, remove POST /review route from plans.py, remove review methods from progress_service.py.",
+              "files": [
+                "vista/templates/review-schema.json",
+                "vista/scripts/collect-review.py",
+                "vista/server/routes/plans.py",
+                "vista/server/services/progress_service.py"
+              ]
+            },
+            {
+              "name": "Update or remove preview.py",
+              "description": "Either repurpose preview.py to open the web app URL in browser, or remove entirely.",
+              "files": ["vista/scripts/preview.py"]
+            },
+            {
+              "name": "Remove vista_preview.html",
+              "description": "Delete the old Jinja2 template that rendered plan JSON as custom SVG.",
+              "files": ["vista/server/views/vista_preview.html"]
+            },
+            {
+              "name": "Update plan skill documentation",
+              "description": "Update SKILL.md Steps 5-7 to generate .mmd files + _arch.json instead of plan JSON diagram sections. Update step 6 to open web app instead of generating preview HTML.",
+              "files": ["vista/skills/plan/SKILL.md"]
+            }
+          ],
+          "acceptanceCriteria": [
+            "template.html deleted",
+            "review-schema.json deleted",
+            "collect-review.py deleted",
+            "Review route removed from plans.py",
+            "Review methods removed from progress_service.py",
+            "vista_preview.html deleted",
+            "Plan skill docs describe arch/ generation workflow"
+          ]
+        }
+      ]
+    }
+  }
+}

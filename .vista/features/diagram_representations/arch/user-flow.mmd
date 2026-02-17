@@ -1,0 +1,45 @@
+flowchart TD
+    Start(["Developer navigates to<br>/project/{id}/arch/{feature}"])
+    ArchPage["Architecture Diagrams Page<br><i>DiagramCardList, RendererDispatch,<br>LoadingSkeleton, ErrorPlaceholder,<br>ChatToggleButton</i>"]
+    LoadManifest["Load _arch.json manifest"]
+    RenderDiagrams["Render diagrams by type:<br>mermaid, drawio, plantuml,<br>d2, graphviz, markdown"]
+    FilterDiagrams["Filter Diagrams<br><i>SearchInput, TypeFilterDropdown,<br>SortDropdown, ClearFiltersBtn</i>"]
+
+    ClickChat{"Click chat<br>toggle button"}
+    SideBySide["Side-by-Side Layout<br><i>SplitPaneContainer:<br>~60% diagrams, ~40% chat</i>"]
+    ChatPanel["AI Chat Panel<br><i>ProviderDropdown, ModelDropdown,<br>MessageThread, MessageInput,<br>DiagramAttachmentChips</i>"]
+    SelectProvider["Select provider & model<br>from dropdowns"]
+    ClickDiagram{"Click a<br>rendered diagram"}
+    AttachContext["Diagram attached as<br>removable context chip"]
+    TypeMessage["Type review message<br>and send"]
+    StreamResponse["AI response streams<br>token-by-token in thread"]
+    CloseChat{"Press Escape or<br>click toggle again"}
+
+    ClickEdit{"Click edit icon<br>on markdown card"}
+    EditMode["Edit Mode<br><i>Raw markdown textarea,<br>save/cancel buttons</i>"]
+    SaveEdit["Save changes<br>PUT to server API"]
+    CancelEdit["Cancel: discard changes,<br>return to rendered view"]
+
+    Start --> ArchPage
+    ArchPage --> LoadManifest
+    LoadManifest --> RenderDiagrams
+    RenderDiagrams --> FilterDiagrams
+    FilterDiagrams --> ClickChat
+    FilterDiagrams --> ClickEdit
+
+    ClickChat -->|"Chat not open"| SideBySide
+    SideBySide --> ChatPanel
+    ChatPanel --> SelectProvider
+    SelectProvider --> ClickDiagram
+    ClickDiagram -->|"Chat is open"| AttachContext
+    AttachContext --> TypeMessage
+    TypeMessage --> StreamResponse
+    StreamResponse -->|"Continue discussing"| TypeMessage
+    SideBySide --> CloseChat
+    CloseChat -->|"Chat is open"| ArchPage
+
+    ClickEdit -->|"Markdown card"| EditMode
+    EditMode --> SaveEdit
+    EditMode --> CancelEdit
+    SaveEdit -->|"Success"| RenderDiagrams
+    CancelEdit --> RenderDiagrams

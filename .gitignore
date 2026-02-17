@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+vista/server/server.pid
+.env
+*.db
+.serena/
+nul
+.playwright-mcp/
+claude-code-teams-mcp/
+serena/
+.ruff_cache/
+mcp/

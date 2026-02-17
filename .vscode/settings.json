@@ -1,0 +1,5 @@
+{
+  "terminal.integrated.env.windows": {
+    "PATH": "C:\\Users\\Grove\\AppData\\Local\\Programs\\Python\\Python314;C:\\Users\\Grove\\AppData\\Local\\Programs\\Python\\Python314\\Scripts;${env:PATH}"
+  }
+}

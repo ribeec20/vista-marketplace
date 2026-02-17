@@ -1,0 +1,12 @@
+{
+  "name": "vista-marketplace",
+  "owner": {
+    "name": "Grove"
+  },
+  "plugins": [
+    {
+      "name": "vista",
+      "source": "./vista"
+    }
+  ]
+}

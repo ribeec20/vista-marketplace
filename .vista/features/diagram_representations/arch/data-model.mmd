@@ -1,0 +1,55 @@
+erDiagram
+    ArchManifest {
+        string feature "Feature name matching directory"
+        DiagramEntry[] diagrams "List of diagram entries"
+    }
+
+    DiagramEntry {
+        string name "Human-readable display name"
+        string file "Filename relative to arch/"
+        enum type "mermaid | drawio | plantuml | d2 | excalidraw | ascii"
+        string diagramType "flowchart, sequence, er, nwdiag, rack, freeform, etc."
+        enum category "architecture | tdd"
+        string description "Brief description"
+        object renderConfig "Optional format-specific settings"
+    }
+
+    RenderConfig {
+        string theme "PlantUML theme or D2 theme"
+        string layout "D2 layout engine (dagre, elk, tala)"
+        boolean darkMode "Excalidraw dark mode toggle"
+        string fontFamily "ASCII art font family override"
+    }
+
+    ChatMessage {
+        enum role "user | assistant | system"
+        string content "Message text"
+        ISO8601 timestamp "When message was sent"
+        DiagramAttachment[] attachments "Optional diagram context"
+    }
+
+    DiagramAttachment {
+        string fileName "Source diagram filename"
+        string diagramName "Display name of diagram"
+        string format "mermaid | drawio | plantuml | d2 | excalidraw | ascii"
+        string content "Raw source or extracted text summary"
+    }
+
+    RenderCacheEntry {
+        string contentHash "SHA-256 of source file content"
+        string svgOutput "Rendered SVG string"
+        ISO8601 renderedAt "When SVG was generated"
+        string renderer "plantuml | d2"
+    }
+
+    PlanJSON {
+        PlanMeta meta "Feature metadata"
+        object architecture "ref to ./arch/_arch.json"
+        ImplementationPhases implementationPhases "Build phases"
+    }
+
+    ArchManifest ||--o{ DiagramEntry : "contains"
+    DiagramEntry ||--o| RenderConfig : "optional"
+    PlanJSON ||--|| ArchManifest : "references via architecture.ref"
+    ChatMessage ||--o{ DiagramAttachment : "includes"
+    DiagramEntry ||--o| RenderCacheEntry : "cached render"

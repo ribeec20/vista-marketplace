@@ -1,0 +1,17 @@
+{
+  "job_id": "812bf683-1958-4112-b664-de02856de4e3",
+  "slug": "arch-chat-build-progress",
+  "mode": "build",
+  "status": "stopped",
+  "provider": "opencode",
+  "model": "github-copilot/gpt-5.2-codex",
+  "iterations": 3,
+  "current_iteration": 0,
+  "pid": 80792,
+  "sandbox": false,
+  "container_id": null,
+  "created_at": "2026-02-12T23:53:57.176514+00:00",
+  "started_at": "2026-02-12T23:53:57.176514+00:00",
+  "completed_at": "2026-02-13T00:59:15.590401+00:00",
+  "error": null
+}

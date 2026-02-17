@@ -1,0 +1,32 @@
+sequenceDiagram
+    participant User as Developer
+    participant Browser as Browser Client
+    participant Server as FastAPI Server
+    participant FS as File System
+
+    Note over Browser: Markdown card rendered in view mode
+
+    User->>Browser: Click pencil/edit icon on markdown card
+    Note over Browser: Switch to edit mode:<br/>textarea with raw markdown,<br/>save + cancel buttons visible
+
+    User->>Browser: Edit markdown content
+    User->>Browser: Click save (checkmark) button
+    Note over Browser: Show saving indicator
+
+    Browser->>Server: PUT /api/projects/{id}/features/{name}/arch/{filename}
+    Server->>FS: Validate path within arch/ directory
+
+    alt Path traversal attempted
+        Server-->>Browser: 400 Forbidden
+        Note over Browser: Show error, keep edit mode
+    else File not found
+        Server-->>Browser: 404 Not Found
+        Note over Browser: Show error, keep edit mode
+    else Success
+        FS-->>Server: File written
+        Server-->>Browser: 200 OK
+        Note over Browser: Brief success indicator,<br/>switch back to rendered view
+    end
+
+    User->>Browser: Click cancel (X) button
+    Note over Browser: Discard edits,<br/>revert to last-saved rendered view

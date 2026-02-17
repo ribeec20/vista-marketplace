@@ -1,0 +1,57 @@
+{% extends "_base.html" %}
+
+{% block title %}Plan: {{ feature_name }} - {{ project.name }}{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/marked@15/marked.min.js"></script>
+<link rel="stylesheet" href="/static/arch-chat.css">
+{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center gap-3 mb-2">
+        <a href="/project/{{ project.id }}" class="text-gray-400 hover:text-gray-300">&larr; {{ project.name }}</a>
+        <span class="text-gray-600">/</span>
+        <h1 class="text-2xl font-bold">{{ feature_name }}</h1>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <!-- Progress Sidebar -->
+    <div class="lg:col-span-1">
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+            <h3 class="text-sm font-semibold text-gray-400 mb-3">Progress</h3>
+            {% if progress.exists %}
+            <div class="text-sm space-y-2">
+                {% if progress.phase %}
+                <div class="flex justify-between">
+                    <span class="text-gray-400">Phase</span>
+                    <span>{{ progress.phase }}</span>
+                </div>
+                {% endif %}
+                {% if progress.all_complete %}
+                <div class="text-green-400 font-medium">ALL PHASES COMPLETE</div>
+                {% endif %}
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-500">No progress.txt found</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Plan Content -->
+    <div class="lg:col-span-3">
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+            <h2 class="text-lg font-semibold mb-4">Implementation Plan</h2>
+            <div id="plan-rendered" class="markdown-content"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const raw = {{ plan_content | tojson }};
+    document.getElementById('plan-rendered').innerHTML = marked.parse(raw);
+</script>
+{% endblock %}

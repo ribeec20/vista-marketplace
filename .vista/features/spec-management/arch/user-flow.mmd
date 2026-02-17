@@ -1,0 +1,43 @@
+flowchart TD
+    Start([Agent or User identifies spec change])
+
+    Start --> Invoke["/vista:spec-update feature topic"]
+
+    Invoke --> CheckFeature{Feature exists?}
+    CheckFeature -->|No| ErrFeature["Error: Run /vista:plan first"]
+    CheckFeature -->|Yes| CheckSpec{Spec file exists?}
+
+    CheckSpec -->|No| ErrSpec["Error: Run /vista:specs first"]
+    CheckSpec -->|Yes| CheckIDs{Has requirement IDs?}
+
+    CheckIDs -->|No| OfferRetro["Offer to retroactively assign IDs"]
+    OfferRetro --> LoadContext
+    CheckIDs -->|Yes| LoadContext["Load domain-requirements.md + spec file"]
+
+    LoadContext --> AskWhat["Ask: What changed?<br/>(AskUserQuestion)"]
+    AskWhat --> AskWhy["Ask: Why did it change?<br/>(AskUserQuestion)"]
+
+    AskWhy --> ChangeType{Change type?}
+
+    ChangeType -->|Update| ModifyReq["Modify existing requirement<br/>Keep same ID"]
+    ChangeType -->|Add| NewReq["Add new requirement<br/>Assign next sequential ID"]
+    ChangeType -->|Deprecate| DepReq["Mark requirement [DEPRECATED]<br/>Keep ID, never reuse"]
+
+    ModifyReq --> UpdateSpec
+    NewReq --> UpdateSpec
+    DepReq --> UpdateSpec
+
+    UpdateSpec["Update spec file:<br/>1. Modify requirement text<br/>2. Add changelog row<br/>3. Update acceptance criteria<br/>4. Update requirement index"]
+
+    UpdateSpec --> CheckGit{Git available?}
+    CheckGit -->|No| WarnNoGit["Warn: skipping commit"]
+    CheckGit -->|Yes| Commit["git commit with<br/>spec(feature/topic): description"]
+
+    WarnNoGit --> GrepCode
+    Commit --> BackfillCommit["Backfill commit hash in changelog"]
+    BackfillCommit --> GrepCode
+
+    GrepCode["Grep codebase for affected ID references"]
+    GrepCode --> Report["Report:<br/>- Changes made<br/>- Affected code locations<br/>- Updated spec file path"]
+
+    Report --> Done([Complete])

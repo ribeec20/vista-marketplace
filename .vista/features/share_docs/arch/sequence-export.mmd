@@ -1,0 +1,31 @@
+sequenceDiagram
+    actor User
+    participant Modal as Export Modal
+    participant API as FastAPI Endpoint
+    participant Gen as HTML Generator
+    participant FS as File System (.vista/)
+    participant Browser
+
+    User->>Modal: Click "Export Documentation"
+    Modal->>API: GET /api/projects/{id}/export/features
+    API->>FS: Scan features for diagrams & requirements
+    FS-->>API: Feature list with content indicators
+    API-->>Modal: Feature tree data (JSON)
+    Modal->>Modal: Render tree checklist
+
+    User->>Modal: Select features & diagrams
+    User->>Modal: Click "Download"
+    Modal->>API: POST /api/projects/{id}/export
+    Note right of Modal: Body: { features: [{ name, diagrams: [...] }] }
+
+    API->>Gen: Generate HTML with selected content
+    Gen->>FS: Read _arch.json manifests
+    FS-->>Gen: Diagram metadata
+    Gen->>FS: Read .mmd diagram files
+    FS-->>Gen: Diagram source code
+    Gen->>FS: Read domain-requirements.md
+    FS-->>Gen: Requirements markdown
+    Gen->>Gen: Render Jinja2 export template
+    Gen-->>API: Complete HTML string
+    API-->>Browser: Response (Content-Disposition: attachment)
+    Browser->>User: File download starts

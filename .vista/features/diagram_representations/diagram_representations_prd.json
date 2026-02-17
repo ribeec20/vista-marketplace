@@ -1,0 +1,324 @@
+[
+  {
+    "category": "functional",
+    "description": "Agent generates .mmd diagram files in arch/ directory during plan workflow",
+    "steps": [
+      "Run /vista:plan for a new feature",
+      "Reach Step 5 (architecture generation)",
+      "Verify arch/ directory created with .mmd files (system-arch.mmd, user-flow.mmd, sequence.mmd, etc.)",
+      "Verify _arch.json manifest written with correct entries for each file",
+      "Verify _plan.json includes architecture.ref pointing to ./arch/_arch.json"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "setup-feature.py scaffolds arch/ directory and empty _arch.json",
+    "steps": [
+      "Run python vista/scripts/setup-feature.py --name test-feature",
+      "Verify .vista/features/test-feature/arch/ directory exists",
+      "Verify .vista/features/test-feature/arch/_arch.json exists with empty diagrams array",
+      "Verify existing scaffolded files (domain-requirements.md, specs/, progress.txt) still created"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "_arch.json manifest validates against schema with correct structure",
+    "steps": [
+      "Create _arch.json with feature name and diagrams array",
+      "Each diagram entry has: name, file, type (mermaid|drawio), diagramType, description",
+      "Verify manifest validates successfully",
+      "Verify invalid manifest (missing required fields) is rejected by server"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Plan JSON schema no longer requires uiFlows, dataModels, dataFlow, services sections",
+    "steps": [
+      "Create a _plan.json with only meta, implementationPhases, and architecture.ref",
+      "Validate against updated plan-schema.json",
+      "Verify validation passes without uiFlows, dataModels, dataFlow, services",
+      "Verify architecture.ref field is accepted"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Web app loads and displays diagram manifest from API",
+    "steps": [
+      "Navigate to /project/{id}/arch/{feature_name}",
+      "Verify page makes GET /api/projects/{id}/features/{name}/arch request",
+      "Verify manifest data returned with diagram entries",
+      "Verify each diagram entry renders as a card with title and description"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Mermaid .mmd files render as interactive SVG in browser",
+    "steps": [
+      "Create a valid .mmd file with flowchart syntax in arch/",
+      "Register it in _arch.json as type 'mermaid'",
+      "Open the feature architecture page in browser",
+      "Verify mermaid.js renders the .mmd content as SVG within the diagram card",
+      "Verify the rendered diagram is interactive (zoomable/pannable)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Draw.io .drawio files render in embedded viewer",
+    "steps": [
+      "Create a valid .drawio XML file in arch/",
+      "Register it in _arch.json as type 'drawio'",
+      "Open the feature architecture page in browser",
+      "Verify Draw.io viewer iframe loads with the file content",
+      "Verify the diagram is viewable and navigable"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Multiple diagram types render on the same page",
+    "steps": [
+      "Create arch/ with 3 .mmd files and 1 .drawio file",
+      "Register all in _arch.json",
+      "Open the feature architecture page",
+      "Verify all 4 diagrams render correctly in separate cards",
+      "Verify each card shows correct title, description, and rendered content"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Chat panel opens with Notion-style slide-out from bottom-right button",
+    "steps": [
+      "Open the feature architecture page",
+      "Verify floating button visible in bottom-right corner",
+      "Click the button",
+      "Verify chat panel slides out from right",
+      "Verify page reflows to side-by-side layout (diagrams ~60%, chat ~40%)",
+      "Click button again to verify panel closes and layout restores"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Provider and model dropdowns populate from existing API",
+    "steps": [
+      "Open chat panel",
+      "Verify provider dropdown loads options from GET /api/providers",
+      "Select a provider (e.g., Claude Code)",
+      "Verify model dropdown populates from GET /api/providers/claude/models",
+      "Verify models list shows (e.g., opus, sonnet, haiku)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Clicking a diagram attaches it as context chip in chat input",
+    "steps": [
+      "Open chat panel",
+      "Click on a rendered mermaid diagram",
+      "Verify diagram appears as a chip/tag in the message input area",
+      "Verify chip shows the diagram name from manifest",
+      "Verify chip is removable by clicking X",
+      "Click a second diagram to verify multiple attachments work"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Sending a chat message invokes CLI and streams response",
+    "steps": [
+      "Open chat panel, select provider and model",
+      "Attach a diagram and type a message",
+      "Click send",
+      "Verify POST /api/chat/send called with provider, model, message, and diagram content",
+      "Verify server invokes the CLI with the prompt",
+      "Verify response streams back via SSE token-by-token",
+      "Verify AI response renders as markdown in chat thread"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Chat thread displays message history with correct alignment",
+    "steps": [
+      "Send 3 messages in chat and receive 3 responses",
+      "Verify user messages appear right-aligned",
+      "Verify AI responses appear left-aligned",
+      "Verify messages are in chronological order",
+      "Verify chat auto-scrolls to latest message"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Server API serves individual diagram file contents",
+    "steps": [
+      "Create arch/ with a .mmd file",
+      "GET /api/projects/{id}/features/{name}/arch/system-arch.mmd",
+      "Verify raw Mermaid text content returned",
+      "Verify Content-Type is text/plain",
+      "GET with .drawio filename returns XML content"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "Mermaid parse error displays inline with raw source",
+    "steps": [
+      "Create a .mmd file with invalid Mermaid syntax",
+      "Register in _arch.json",
+      "Open architecture page",
+      "Verify error message displayed in the diagram card",
+      "Verify raw Mermaid source is visible for debugging"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "Missing diagram file shows placeholder in card",
+    "steps": [
+      "Register a diagram in _arch.json pointing to a non-existent file",
+      "Open architecture page",
+      "Verify placeholder message ('File not found') displayed in card",
+      "Verify other diagrams still render normally (error boundary per card)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "Malformed _arch.json returns validation error from server",
+    "steps": [
+      "Write _arch.json with missing required fields (e.g., no 'type' on a diagram entry)",
+      "GET /api/projects/{id}/features/{name}/arch",
+      "Verify server returns 400 with validation error message",
+      "Verify error describes which field is missing"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "No providers configured disables chat send button",
+    "steps": [
+      "Configure settings with no enabled providers",
+      "Open chat panel",
+      "Verify provider dropdown shows 'No providers configured'",
+      "Verify send button is disabled",
+      "Verify helpful message displayed in chat area"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "CLI invocation failure shows error in chat thread",
+    "steps": [
+      "Select a provider and model, send a message",
+      "Simulate CLI process failure (exit code non-zero)",
+      "Verify error message displayed as system message in chat thread",
+      "Verify user can send another message after the error"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "SSE connection drop shows reconnecting indicator and recovers",
+    "steps": [
+      "Start a chat conversation with streaming response",
+      "Simulate SSE connection drop mid-stream",
+      "Verify 'Reconnecting...' indicator shown in chat",
+      "Verify connection auto-reconnects",
+      "Verify user can send new messages after reconnection"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "Feature with no arch/ directory shows empty state",
+    "steps": [
+      "Navigate to architecture page for a feature that has no arch/ directory",
+      "Verify page shows 'No architecture diagrams found' message",
+      "Verify instructions or link to run /vista:plan shown"
+    ],
+    "passes": false
+  },
+  {
+    "category": "performance",
+    "description": "Mermaid diagram renders in under 1 second",
+    "steps": [
+      "Create a moderately complex .mmd file (20+ nodes)",
+      "Open architecture page and measure render time",
+      "Verify diagram appears within 1 second of page load"
+    ],
+    "passes": false
+  },
+  {
+    "category": "performance",
+    "description": "Page with 5 diagrams loads in under 3 seconds total",
+    "steps": [
+      "Create arch/ with 5 .mmd files of moderate complexity",
+      "Open architecture page and measure total load time",
+      "Verify all 5 diagrams rendered within 3 seconds"
+    ],
+    "passes": false
+  },
+  {
+    "category": "performance",
+    "description": "First AI response token visible within 2 seconds of sending",
+    "steps": [
+      "Open chat, select provider/model, type a short message",
+      "Click send and start timer",
+      "Verify first token of AI response appears within 2 seconds"
+    ],
+    "passes": false
+  },
+  {
+    "category": "ui-ux",
+    "description": "Chat panel responsive layout works at different viewport widths",
+    "steps": [
+      "Open architecture page at 1920px width",
+      "Open chat panel, verify 60/40 split",
+      "Resize to 1024px, verify layout still usable",
+      "Resize to 768px, verify chat overlays diagrams (mobile-friendly)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "ui-ux",
+    "description": "Diagram cards have loading skeleton while fetching content",
+    "steps": [
+      "Open architecture page",
+      "Verify each card shows loading skeleton/spinner while diagram fetches",
+      "Verify skeleton replaced by rendered diagram when complete",
+      "Verify loading states are independent per card"
+    ],
+    "passes": false
+  },
+  {
+    "category": "ui-ux",
+    "description": "Chat message input area handles diagram attachment chips cleanly",
+    "steps": [
+      "Attach 3 diagrams as chips",
+      "Verify chips wrap to multiple lines if needed",
+      "Verify text input area remains usable below chips",
+      "Remove a chip and verify layout adjusts",
+      "Verify chip displays diagram name (not filename)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "security",
+    "description": "Server only serves files from within the arch/ directory (no path traversal)",
+    "steps": [
+      "GET /api/projects/{id}/features/{name}/arch/../../secrets.json",
+      "Verify server returns 400 or 404 (not file contents)",
+      "Verify path traversal is blocked",
+      "Verify only files listed in _arch.json are servable"
+    ],
+    "passes": false
+  }
+]

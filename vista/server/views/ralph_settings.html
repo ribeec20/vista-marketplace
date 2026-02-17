@@ -1,0 +1,380 @@
+{% extends "_base.html" %}
+
+{% block title %}Ralph Settings - Dashboard{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <div class="flex items-center gap-3 mb-2">
+        <a href="/" class="text-gray-400 hover:text-gray-300">&larr; Dashboard</a>
+        <span class="text-gray-600">/</span>
+        <h1 class="text-3xl font-bold">Ralph Settings</h1>
+    </div>
+    <p class="text-gray-400">Configure defaults, summarizer, and provider model settings</p>
+</div>
+
+<!-- Toast notification -->
+<div id="toast" class="hidden fixed top-4 right-4 px-4 py-3 rounded-lg text-sm z-50 transition-opacity"></div>
+
+<div class="space-y-6">
+    <!-- Defaults Section -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+        <h2 class="text-lg font-semibold mb-4">Defaults</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-sm text-gray-400 mb-1">Provider</label>
+                <select id="default-provider" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-100"
+                        onchange="onDefaultProviderChange()">
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm text-gray-400 mb-1">Model</label>
+                <select id="default-model" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-100">
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm text-gray-400 mb-1">Iterations</label>
+                <input type="number" id="default-iterations" min="1" value="3"
+                       class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-100">
+            </div>
+        </div>
+    </div>
+
+    <!-- Summarizer Section -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+        <h2 class="text-lg font-semibold mb-4">Summarizer</h2>
+        <p class="text-sm text-gray-400 mb-4">AI model used by ralph_summary to generate job summaries</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm text-gray-400 mb-1">Provider</label>
+                <select id="summarizer-provider" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-100"
+                        onchange="onSummarizerProviderChange()">
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm text-gray-400 mb-1">Model</label>
+                <select id="summarizer-model" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-100">
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Providers & Models Section -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold">Providers & Models</h2>
+            <button onclick="refreshModels()" id="refresh-btn"
+                    class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">
+                Refresh Models
+            </button>
+        </div>
+        <div id="providers-section" class="space-y-6">
+            <div class="text-gray-500 text-sm">Loading providers...</div>
+        </div>
+    </div>
+
+    <!-- Save Button -->
+    <div class="flex justify-end gap-3">
+        <button onclick="saveSettings()" id="save-btn"
+                class="px-6 py-2 bg-green-700 hover:bg-green-600 rounded font-medium transition-colors">
+            Save Settings
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let settingsData = null;  // Loaded from API
+
+// Load settings on page load
+loadSettings();
+
+async function loadSettings() {
+    try {
+        const resp = await fetch('/api/settings/ralph');
+        if (!resp.ok) throw new Error('Failed to load settings');
+        settingsData = await resp.json();
+        renderSettings();
+    } catch(e) {
+        showToast('Failed to load settings: ' + e.message, 'error');
+    }
+}
+
+function renderSettings() {
+    if (!settingsData) return;
+
+    const { defaults, summarizer, providers, raw_settings } = settingsData;
+
+    // Populate default provider dropdown
+    const defProvider = document.getElementById('default-provider');
+    defProvider.innerHTML = providers.map(p =>
+        `<option value="${p.name}" ${p.name === defaults.provider ? 'selected' : ''}>${p.display_name}</option>`
+    ).join('');
+
+    // Populate default model dropdown (for selected provider)
+    updateDefaultModelDropdown();
+
+    // Set iterations
+    document.getElementById('default-iterations').value = defaults.iterations || 3;
+
+    // Populate summarizer dropdowns (all providers, all models - not filtered)
+    const sumProvider = document.getElementById('summarizer-provider');
+    sumProvider.innerHTML = providers.map(p =>
+        `<option value="${p.name}" ${p.name === summarizer.provider ? 'selected' : ''}>${p.display_name}</option>`
+    ).join('');
+    updateSummarizerModelDropdown();
+
+    // Render provider model tables
+    renderProvidersTables();
+}
+
+function updateDefaultModelDropdown() {
+    const providerName = document.getElementById('default-provider').value;
+    const modelSelect = document.getElementById('default-model');
+    const provider = settingsData.providers.find(p => p.name === providerName);
+    if (!provider) return;
+
+    const currentDefault = settingsData.defaults.model;
+    modelSelect.innerHTML = provider.models.map(m =>
+        `<option value="${m.id}" ${m.id === currentDefault ? 'selected' : ''}>${m.id}</option>`
+    ).join('');
+}
+
+function onDefaultProviderChange() {
+    updateDefaultModelDropdown();
+}
+
+function updateSummarizerModelDropdown() {
+    const providerName = document.getElementById('summarizer-provider').value;
+    const modelSelect = document.getElementById('summarizer-model');
+    const provider = settingsData.providers.find(p => p.name === providerName);
+    if (!provider) return;
+
+    const currentModel = settingsData.summarizer.model;
+    modelSelect.innerHTML = provider.models.map(m =>
+        `<option value="${m.id}" ${m.id === currentModel ? 'selected' : ''}>${m.id}</option>`
+    ).join('');
+}
+
+function onSummarizerProviderChange() {
+    updateSummarizerModelDropdown();
+}
+
+function renderProvidersTables() {
+    const section = document.getElementById('providers-section');
+    const rawProviders = settingsData.raw_settings.providers || {};
+
+    section.innerHTML = settingsData.providers.map(provider => {
+        const rawCfg = rawProviders[provider.name] || {};
+        const isEnabled = rawCfg.enabled !== false;
+        const allowlist = rawCfg.models_allowed || [];
+        const favorites = rawCfg.favorites || [];
+        const metadata = rawCfg.model_metadata || {};
+
+        return `
+        <div class="border border-gray-700 rounded-lg p-4" data-provider="${provider.name}">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-3">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" class="sr-only peer provider-toggle" data-provider="${provider.name}"
+                               ${isEnabled ? 'checked' : ''}>
+                        <div class="w-9 h-5 bg-gray-600 peer-checked:bg-green-600 rounded-full
+                                    after:content-[''] after:absolute after:top-[2px] after:left-[2px]
+                                    after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all
+                                    peer-checked:after:translate-x-full"></div>
+                    </label>
+                    <h3 class="font-semibold">${provider.display_name}</h3>
+                </div>
+                <span class="text-xs text-gray-500">${provider.models.length} models</span>
+            </div>
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-gray-400 text-xs">
+                        <th class="text-left py-1 pr-2">Model</th>
+                        <th class="text-center py-1 pr-2 w-8">Fav</th>
+                        <th class="text-left py-1 pr-2">Allowed</th>
+                        <th class="text-left py-1 pr-2">Cost Tier</th>
+                        <th class="text-left py-1 pr-2">Best For Tags</th>
+                        <th class="text-left py-1">Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${provider.models.map(model => {
+                        const meta = metadata[model.id] || {};
+                        const isAllowed = allowlist.length === 0 || allowlist.includes(model.id);
+                        const isFavorite = favorites.includes(model.id);
+                        const costTier = meta.cost_tier || model.cost_tier || '';
+                        const tags = (meta.best_for_tags || model.best_for_tags || []).join(', ');
+                        const notes = meta.best_for_notes || model.best_for_notes || '';
+                        return `
+                        <tr class="border-t border-gray-700/50" data-model="${model.id}">
+                            <td class="py-2 pr-2 font-mono text-gray-200">${model.id}</td>
+                            <td class="py-2 pr-1 text-center">
+                                <button type="button" class="model-favorite text-lg ${isFavorite ? 'text-yellow-400' : 'text-gray-600 hover:text-gray-400'}"
+                                        onclick="toggleFavorite(this, '${provider.name}')">
+                                    ${isFavorite ? '\u2605' : '\u2606'}
+                                </button>
+                            </td>
+                            <td class="py-2 pr-2">
+                                <input type="checkbox" class="model-allowed rounded" ${isAllowed ? 'checked' : ''}>
+                            </td>
+                            <td class="py-2 pr-2">
+                                <select class="model-cost-tier bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200">
+                                    <option value="" ${!costTier ? 'selected' : ''}>—</option>
+                                    <option value="free" ${costTier === 'free' ? 'selected' : ''}>free</option>
+                                    <option value="cheap" ${costTier === 'cheap' ? 'selected' : ''}>cheap</option>
+                                    <option value="moderate" ${costTier === 'moderate' ? 'selected' : ''}>moderate</option>
+                                    <option value="expensive" ${costTier === 'expensive' ? 'selected' : ''}>expensive</option>
+                                </select>
+                            </td>
+                            <td class="py-2 pr-2">
+                                <input type="text" class="model-tags bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 w-full"
+                                       placeholder="comma-separated" value="${tags}">
+                            </td>
+                            <td class="py-2">
+                                <input type="text" class="model-notes bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 w-full"
+                                       placeholder="notes" value="${escapeAttr(notes)}">
+                            </td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>`;
+    }).join('');
+}
+
+function toggleFavorite(btn, providerName) {
+    const section = btn.closest('[data-provider]');
+    const currentFavs = section.querySelectorAll('.model-favorite.text-yellow-400');
+    const isCurrentlyFav = btn.classList.contains('text-yellow-400');
+
+    if (!isCurrentlyFav && currentFavs.length >= 3) {
+        showToast('Maximum 3 favorites per provider', 'error');
+        return;
+    }
+
+    btn.classList.toggle('text-yellow-400');
+    btn.classList.toggle('text-gray-600');
+    btn.textContent = btn.classList.contains('text-yellow-400') ? '\u2605' : '\u2606';
+}
+
+function gatherSettings() {
+    const defaults = {
+        provider: document.getElementById('default-provider').value,
+        model: document.getElementById('default-model').value,
+        iterations: parseInt(document.getElementById('default-iterations').value) || 3,
+    };
+
+    const summarizer = {
+        provider: document.getElementById('summarizer-provider').value,
+        model: document.getElementById('summarizer-model').value,
+    };
+
+    const providers = {};
+    document.querySelectorAll('[data-provider]').forEach(section => {
+        // Skip if it's a table row (model rows also have data-model)
+        if (section.tagName !== 'DIV' || !section.querySelector('.provider-toggle')) return;
+        const name = section.dataset.provider;
+        const enabled = section.querySelector('.provider-toggle').checked;
+        const modelsAllowed = [];
+        const modelMetadata = {};
+
+        section.querySelectorAll('tr[data-model]').forEach(row => {
+            const modelId = row.dataset.model;
+            const allowed = row.querySelector('.model-allowed').checked;
+            if (allowed) modelsAllowed.push(modelId);
+
+            const costTier = row.querySelector('.model-cost-tier').value;
+            const tagsRaw = row.querySelector('.model-tags').value;
+            const notes = row.querySelector('.model-notes').value;
+            const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+            if (costTier || tags.length || notes) {
+                modelMetadata[modelId] = {};
+                if (costTier) modelMetadata[modelId].cost_tier = costTier;
+                if (tags.length) modelMetadata[modelId].best_for_tags = tags;
+                if (notes) modelMetadata[modelId].best_for_notes = notes;
+            }
+        });
+
+        const favorites = [];
+        section.querySelectorAll('tr[data-model]').forEach(row => {
+            const modelId = row.dataset.model;
+            const favBtn = row.querySelector('.model-favorite');
+            if (favBtn && favBtn.classList.contains('text-yellow-400')) {
+                favorites.push(modelId);
+            }
+        });
+
+        providers[name] = {
+            enabled,
+            models_allowed: modelsAllowed,
+            models_blocked: [],
+            favorites: favorites,
+            model_metadata: modelMetadata,
+        };
+    });
+
+    return { defaults, summarizer, providers };
+}
+
+async function saveSettings() {
+    const btn = document.getElementById('save-btn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    try {
+        const body = gatherSettings();
+        const resp = await fetch('/api/settings/ralph', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+        });
+        if (!resp.ok) {
+            const data = await resp.json();
+            throw new Error(data.detail || 'Save failed');
+        }
+        showToast('Settings saved', 'success');
+    } catch(e) {
+        showToast('Failed to save: ' + e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Settings';
+    }
+}
+
+async function refreshModels() {
+    const btn = document.getElementById('refresh-btn');
+    btn.disabled = true;
+    btn.textContent = 'Refreshing...';
+
+    try {
+        const resp = await fetch('/api/settings/ralph/models');
+        if (!resp.ok) throw new Error('Refresh failed');
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+        settingsData.providers = data.providers;
+        renderProvidersTables();
+        showToast('Models refreshed', 'success');
+    } catch(e) {
+        showToast('Refresh failed: ' + e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Refresh Models';
+    }
+}
+
+function showToast(message, type) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = type === 'error'
+        ? 'fixed top-4 right-4 px-4 py-3 rounded-lg text-sm z-50 bg-red-900 text-red-200 border border-red-700'
+        : 'fixed top-4 right-4 px-4 py-3 rounded-lg text-sm z-50 bg-green-900 text-green-200 border border-green-700';
+    setTimeout(() => { toast.className = 'hidden'; }, 3000);
+}
+
+function escapeAttr(str) {
+    return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+</script>
+{% endblock %}

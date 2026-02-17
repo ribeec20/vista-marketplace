@@ -1,0 +1,710 @@
+{% extends "_base.html" %}
+
+{% block title %}{{ project.name }} - Ralph Loop{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <div class="flex flex-wrap items-center gap-3 mb-2">
+        <a href="/" class="text-gray-400 hover:text-gray-300">&larr; Dashboard</a>
+        <span class="text-gray-600">/</span>
+        <h1 class="text-3xl font-bold">{{ project.name }}</h1>
+        <div class="ml-auto flex items-center gap-2">
+            <button onclick="openExportModal()"
+                    class="px-3 py-1.5 rounded border border-blue-600 text-blue-300 hover:bg-blue-900/30 text-sm transition-colors">
+                Export Docs
+            </button>
+            <button onclick="removeProject('{{ project.id }}', '{{ project.name }}', '{{ loop_state.status }}')"
+                    class="px-3 py-1.5 rounded border border-gray-600 text-gray-300 hover:border-red-600 hover:text-red-300 text-sm transition-colors">
+                Remove Project
+            </button>
+        </div>
+    </div>
+    <p class="text-gray-400 text-sm">{{ project.path }}</p>
+</div>
+
+<div class="mb-6 border-b border-gray-700">
+    <div class="flex items-center gap-2" role="tablist">
+        <button id="tab-overview-btn" onclick="showProjectTab('overview')"
+                class="project-tab-btn px-4 py-2 text-sm rounded-t-md border border-b-0 border-gray-700 bg-gray-800 text-gray-200">
+            Overview
+        </button>
+        <button id="tab-loops-btn" onclick="showProjectTab('loops')"
+                class="project-tab-btn px-4 py-2 text-sm rounded-t-md border border-b-0 border-gray-700 bg-gray-900 text-gray-400 hover:text-gray-200">
+            Ralph Loops
+        </button>
+    </div>
+</div>
+
+<section id="tab-overview" class="space-y-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+            <p class="text-xs text-gray-400 mb-1">Features</p>
+            <p class="text-2xl font-semibold">{{ features|length }}</p>
+        </div>
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+            <p class="text-xs text-gray-400 mb-1">Loop Status</p>
+            <p class="text-2xl font-semibold capitalize">{{ loop_state.status }}</p>
+        </div>
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+            <p class="text-xs text-gray-400 mb-1">Docs Readiness</p>
+            <p class="text-2xl font-semibold">{{ features | selectattr('has_implementation_plan') | list | length }}/{{ features|length }}</p>
+        </div>
+    </div>
+
+    <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-700">
+            <h2 class="text-base font-semibold">Feature Documentation</h2>
+            <p class="text-xs text-gray-400 mt-1">Overview of specs, plans, prompts, and architecture docs</p>
+        </div>
+
+        {% if features %}
+        <div class="divide-y divide-gray-700">
+            {% for feature in features %}
+            <div class="px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                <div>
+                    <p class="font-medium text-gray-100">{{ feature.name }}</p>
+                    <div class="flex flex-wrap items-center gap-2 mt-1 text-xs">
+                        <span class="px-2 py-0.5 rounded border border-gray-600 text-gray-300">Specs: {{ feature.spec_count }}</span>
+                        <span class="px-2 py-0.5 rounded border {% if feature.has_implementation_plan %}border-green-700 text-green-300{% else %}border-gray-600 text-gray-400{% endif %}">
+                            Impl Plan {% if feature.has_implementation_plan %}✓{% else %}—{% endif %}
+                        </span>
+                        <span class="px-2 py-0.5 rounded border {% if feature.has_agents_md %}border-green-700 text-green-300{% else %}border-gray-600 text-gray-400{% endif %}">
+                            AGENTS.md {% if feature.has_agents_md %}✓{% else %}—{% endif %}
+                        </span>
+                        <span class="px-2 py-0.5 rounded border {% if feature.has_prompt_build or feature.has_prompt_plan %}border-green-700 text-green-300{% else %}border-gray-600 text-gray-400{% endif %}">
+                            PROMPTs {% if feature.has_prompt_build or feature.has_prompt_plan %}✓{% else %}—{% endif %}
+                        </span>
+                        <span class="px-2 py-0.5 rounded border {% if feature.has_arch_manifest %}border-green-700 text-green-300{% else %}border-gray-600 text-gray-400{% endif %}">
+                            Arch {% if feature.has_arch_manifest %}{{ feature.arch_diagram_count }}{% else %}—{% endif %}
+                        </span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                    <a href="/project/{{ project.id }}/plan/{{ feature.name }}" class="px-2.5 py-1 rounded bg-blue-900/50 hover:bg-blue-900/70 text-blue-300 border border-blue-800">Implementation Plan</a>
+                    {% if feature.has_arch_manifest %}
+                    <a href="/project/{{ project.id }}/arch/{{ feature.name }}" class="px-2.5 py-1 rounded bg-green-900/40 hover:bg-green-900/60 text-green-300 border border-green-800">Architecture</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="px-4 py-8 text-gray-500 text-sm">No features found in .vista/features/</div>
+        {% endif %}
+    </div>
+</section>
+
+<section id="tab-loops" class="hidden">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-1">
+            <div class="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
+                <h2 class="text-lg font-semibold mb-4">Loop Control</h2>
+
+                {% if loop_state.status in ["running", "starting"] %}
+                <div class="space-y-3 mb-4">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-400">Status</span>
+                        <span class="text-green-400 font-medium">{{ loop_state.status }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-400">Feature</span>
+                        <span>{{ loop_state.feature_name }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-400">Provider</span>
+                        <span>{{ loop_state.provider_display_name or loop_state.provider or 'Claude Code' }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-400">Mode</span>
+                        <span>{{ loop_state.mode }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-400">Model</span>
+                        <span>{{ loop_state.model }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-400">Iteration</span>
+                        <span id="iteration-display" class="text-green-400 font-mono">{{ loop_state.iteration }}</span>
+                    </div>
+                </div>
+
+                <button onclick="stopLoop()" class="w-full py-2 bg-red-800 hover:bg-red-700 rounded font-medium transition-colors">
+                    Stop Loop
+                </button>
+
+                {% else %}
+                <form id="start-loop-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Feature</label>
+                        <select id="feature-select" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-100">
+                            {% for feature in features %}
+                            <option value="{{ feature.name }}">{{ feature.name }}</option>
+                            {% endfor %}
+                            {% if not features %}
+                            <option value="" disabled>No features found</option>
+                            {% endif %}
+                        </select>
+                    </div>
+
+                    {% if providers|length > 1 %}
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Provider</label>
+                        <select id="provider-select" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-100" onchange="onProviderChange()">
+                            {% for p in providers %}
+                            <option value="{{ p.name }}">{{ p.display_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% else %}
+                    <input type="hidden" id="provider-select" value="{{ providers[0].name if providers else 'claude' }}">
+                    {% endif %}
+
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Mode</label>
+                        <div class="flex gap-2">
+                            <label class="flex-1 cursor-pointer">
+                                <input type="radio" name="mode" value="build" checked class="hidden peer">
+                                <span class="block text-center py-2 rounded border border-gray-600 peer-checked:border-green-500 peer-checked:bg-green-900/30 peer-checked:text-green-400 transition-colors">Build</span>
+                            </label>
+                            <label class="flex-1 cursor-pointer">
+                                <input type="radio" name="mode" value="plan" class="hidden peer">
+                                <span class="block text-center py-2 rounded border border-gray-600 peer-checked:border-blue-500 peer-checked:bg-blue-900/30 peer-checked:text-blue-400 transition-colors">Plan</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Model</label>
+                        <select id="model-select" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-100"></select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Max Iterations (0 = unlimited)</label>
+                        <input type="number" id="max-iterations" value="0" min="0"
+                               class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-100">
+                    </div>
+
+                    <button type="submit" class="w-full py-2 bg-green-700 hover:bg-green-600 rounded font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-green-700"
+                            {% if not features %}disabled{% endif %}>
+                        Start Loop
+                    </button>
+                </form>
+                {% endif %}
+
+                <div id="loop-error" class="hidden mt-3 text-red-400 text-sm"></div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2">
+            <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+                <div class="flex items-center justify-between px-4 py-2 bg-gray-750 border-b border-gray-700">
+                    <h2 class="text-sm font-semibold text-gray-300">Terminal Output</h2>
+                    <div class="flex items-center gap-2">
+                        <span id="status-badge" class="text-xs text-gray-500">{{ loop_state.status }}</span>
+                        <button onclick="clearTerminal()" class="text-xs text-gray-500 hover:text-gray-300">Clear</button>
+                    </div>
+                </div>
+                <div id="terminal" class="terminal-output p-4 h-[600px] overflow-y-auto font-mono text-sm leading-relaxed">
+                    <div class="text-gray-500">Waiting for loop output...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Export Modal -->
+<div id="export-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center">
+    <div class="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-lg max-h-[80vh] flex flex-col">
+        <div class="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+            <h3 class="font-semibold">Export Documentation</h3>
+            <button onclick="closeExportModal()" class="text-gray-400 hover:text-white">&times;</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4" id="export-tree">
+            <div class="text-gray-500 text-center py-8">Loading features...</div>
+        </div>
+        <div class="px-4 py-3 border-t border-gray-700">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-3">
+                    <button onclick="selectAllExport(true)" class="text-xs text-blue-400 hover:text-blue-300">Select All</button>
+                    <button onclick="selectAllExport(false)" class="text-xs text-gray-400 hover:text-gray-300">Deselect All</button>
+                </div>
+                <button id="export-download-btn" onclick="startExport()" disabled
+                        class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                    Download
+                </button>
+            </div>
+            <div class="flex items-center gap-4 pt-2 border-t border-gray-700/50">
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" id="export-offline-cb">
+                    <span class="text-xs text-gray-400">Offline mode</span>
+                </label>
+                <label class="flex items-center gap-1.5">
+                    <span class="text-xs text-gray-400">Theme:</span>
+                    <select id="export-theme-select" class="bg-gray-700 text-xs text-gray-200 rounded px-1.5 py-0.5 border border-gray-600">
+                        <option value="dark">Dark</option>
+                        <option value="light">Light</option>
+                    </select>
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const PROJECT_ID = '{{ project.id }}';
+const LOOP_STATUS = '{{ loop_state.status }}';
+
+// Provider names from server (no models yet — those are fetched on-demand)
+const PROVIDERS = {{ providers | tojson }};
+
+if (LOOP_STATUS === 'running' || LOOP_STATUS === 'starting') {
+    connectSSE(PROJECT_ID);
+}
+
+function showProjectTab(tab) {
+    const overview = document.getElementById('tab-overview');
+    const loops = document.getElementById('tab-loops');
+    const overviewBtn = document.getElementById('tab-overview-btn');
+    const loopsBtn = document.getElementById('tab-loops-btn');
+
+    if (tab === 'loops') {
+        overview.classList.add('hidden');
+        loops.classList.remove('hidden');
+        overviewBtn.classList.replace('bg-gray-800', 'bg-gray-900');
+        overviewBtn.classList.replace('text-gray-200', 'text-gray-400');
+        loopsBtn.classList.replace('bg-gray-900', 'bg-gray-800');
+        loopsBtn.classList.replace('text-gray-400', 'text-gray-200');
+        window.location.hash = 'loops';
+        return;
+    }
+
+    loops.classList.add('hidden');
+    overview.classList.remove('hidden');
+    loopsBtn.classList.replace('bg-gray-800', 'bg-gray-900');
+    loopsBtn.classList.replace('text-gray-200', 'text-gray-400');
+    overviewBtn.classList.replace('bg-gray-900', 'bg-gray-800');
+    overviewBtn.classList.replace('text-gray-400', 'text-gray-200');
+    window.location.hash = 'overview';
+}
+
+if (window.location.hash === '#loops') {
+    showProjectTab('loops');
+} else {
+    showProjectTab('overview');
+}
+
+// --- Dynamic model loading ---
+
+let _modelFetchId = 0;  // Guards against stale responses overwriting newer ones
+
+function renderModels(models) {
+    const select = document.getElementById('model-select');
+    if (!select) return;
+    select.innerHTML = '';
+    models.forEach((model) => {
+        const opt = document.createElement('option');
+        opt.value = model;
+        opt.textContent = model;
+        select.appendChild(opt);
+    });
+}
+
+function setStartEnabled(enabled) {
+    const btn = document.querySelector('#start-loop-form button[type="submit"]');
+    if (btn) btn.disabled = !enabled;
+}
+
+function setModelLoading() {
+    const select = document.getElementById('model-select');
+    if (!select) return;
+    select.innerHTML = '<option disabled selected>Loading models...</option>';
+    setStartEnabled(false);
+}
+
+async function fetchModels(providerName) {
+    const thisId = ++_modelFetchId;
+    setModelLoading();
+    try {
+        const resp = await fetch(`/api/providers/${providerName}/models`);
+        if (thisId !== _modelFetchId) return;  // Stale response, user switched provider
+        if (!resp.ok) throw new Error('Failed to fetch models');
+        const data = await resp.json();
+        if (thisId !== _modelFetchId) return;
+        if (data.error) {
+            // Server returned models but with an error (e.g. timeout)
+            const select = document.getElementById('model-select');
+            if (select) select.innerHTML = '<option disabled selected>Timed out - click retry</option>';
+            setStartEnabled(false);
+            return;
+        }
+        renderModels(data.models);
+        setStartEnabled(data.models.length > 0);
+    } catch (err) {
+        if (thisId !== _modelFetchId) return;
+        const select = document.getElementById('model-select');
+        if (select) select.innerHTML = '<option disabled selected>Failed to load - click retry</option>';
+        setStartEnabled(false);
+    }
+}
+
+function getSelectedProvider() {
+    const sel = document.getElementById('provider-select');
+    return sel ? sel.value : 'claude';
+}
+
+function onProviderChange() {
+    fetchModels(getSelectedProvider());
+}
+
+if (document.getElementById('start-loop-form') && PROVIDERS.length > 0) {
+    fetchModels(PROVIDERS[0].name);
+}
+
+// --- Form submission ---
+
+document.getElementById('start-loop-form')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const errorEl = document.getElementById('loop-error');
+    errorEl.classList.add('hidden');
+
+    const body = {
+        feature_name: document.getElementById('feature-select').value,
+        mode: document.querySelector('input[name="mode"]:checked').value,
+        model: document.getElementById('model-select').value,
+        provider: getSelectedProvider(),
+        max_iterations: parseInt(document.getElementById('max-iterations').value) || 0,
+    };
+
+    try {
+        const resp = await fetch(`/api/projects/${PROJECT_ID}/loop/start`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+        if (!resp.ok) {
+            const data = await resp.json();
+            throw new Error(data.detail || 'Failed to start loop');
+        }
+        window.location.reload();
+    } catch(err) {
+        errorEl.textContent = err.message;
+        errorEl.classList.remove('hidden');
+    }
+});
+
+async function stopLoop() {
+    // Close SSE first to prevent reconnection attempts during stop
+    if (currentEventSource) {
+        currentEventSource.close();
+        currentEventSource = null;
+    }
+    await fetch(`/api/projects/${PROJECT_ID}/loop/stop`, {method: 'POST'});
+    window.location.reload();
+}
+
+async function removeProject(projectId, projectName, loopStatus) {
+    if (loopStatus === 'running' || loopStatus === 'starting') {
+        if (!confirm(`"${projectName}" has a running loop. Stop loop and remove from project list?\n\nFiles on disk will NOT be deleted.`)) return;
+        await stopLoop();
+        return;
+    }
+
+    if (!confirm(`Remove "${projectName}" from project list?\n\nFiles on disk will NOT be deleted.`)) return;
+    const resp = await fetch(`/api/projects/${projectId}`, {method: 'DELETE'});
+    if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        alert(data.detail || 'Failed to remove project');
+        return;
+    }
+    window.location.href = '/';
+}
+
+// =========================================================================
+// Export Modal
+// =========================================================================
+
+let exportFeatures = [];
+let exportRalphJobs = [];
+
+async function openExportModal() {
+    const modal = document.getElementById('export-modal');
+    const tree = document.getElementById('export-tree');
+    modal.classList.remove('hidden');
+    tree.innerHTML = '<div class="text-gray-500 text-center py-8">Loading features...</div>';
+
+    try {
+        const [featResp, ralphResp] = await Promise.all([
+            fetch(`/api/projects/${PROJECT_ID}/export/features`),
+            fetch(`/api/projects/${PROJECT_ID}/export/ralph-jobs`),
+        ]);
+        if (!featResp.ok) throw new Error('Failed to load features');
+        exportFeatures = await featResp.json();
+        exportRalphJobs = ralphResp.ok ? await ralphResp.json() : [];
+
+        if (exportFeatures.length === 0 && exportRalphJobs.length === 0) {
+            tree.innerHTML = '<div class="text-gray-500 text-center py-8">No exportable content found</div>';
+            return;
+        }
+        renderExportTree();
+    } catch (err) {
+        tree.innerHTML = `<div class="text-red-400 text-center py-8">${escapeHtmlExport(err.message)}</div>`;
+    }
+}
+
+function closeExportModal() {
+    document.getElementById('export-modal').classList.add('hidden');
+}
+
+function renderExportTree() {
+    const tree = document.getElementById('export-tree');
+    let html = '';
+
+    // --- Features ---
+    if (exportFeatures.length > 0) {
+        html += exportFeatures.map((feature, fi) => {
+            const diagrams = feature.diagrams || [];
+            return `
+                <div class="mb-3">
+                    <div class="flex items-center gap-2 mb-1">
+                        <button onclick="toggleFeatureExpand(${fi})"
+                                class="text-gray-400 hover:text-gray-200 text-xs w-5 text-center"
+                                id="expand-btn-${fi}">\u25B6</button>
+                        <label class="flex items-center gap-2 cursor-pointer flex-1">
+                            <input type="checkbox" class="feature-cb" data-fi="${fi}"
+                                   onchange="onFeatureToggle(${fi})" checked>
+                            <span class="text-sm font-medium">${escapeHtmlExport(feature.name)}</span>
+                            <span class="text-xs text-gray-500">${diagrams.length} diagram${diagrams.length !== 1 ? 's' : ''}</span>
+                            ${feature.has_requirements ? '<span class="text-xs text-green-600">+ requirements</span>' : ''}
+                            ${feature.has_progress ? '<span class="text-xs text-yellow-600">+ progress</span>' : ''}
+                            ${feature.has_agents_md ? '<span class="text-xs text-purple-600">+ agents</span>' : ''}
+                            ${feature.has_implementation_plan ? '<span class="text-xs text-blue-600">+ plan</span>' : ''}
+                        </label>
+                    </div>
+                    <div id="diagrams-${fi}" class="ml-7 hidden space-y-1">
+                        ${diagrams.map((d, di) => `
+                            <label class="flex items-center gap-2 cursor-pointer py-0.5">
+                                <input type="checkbox" class="diagram-cb" data-fi="${fi}" data-di="${di}" checked
+                                       onchange="onDiagramToggle(${fi})">
+                                <span class="text-xs text-gray-300">${escapeHtmlExport(d.name)}</span>
+                                <span class="text-xs text-gray-600 truncate">${escapeHtmlExport(d.description || '')}</span>
+                            </label>
+                        `).join('')}
+                        ${feature.has_requirements ? `
+                            <label class="flex items-center gap-2 cursor-pointer py-0.5">
+                                <input type="checkbox" class="content-cb" data-fi="${fi}" data-type="requirements" checked>
+                                <span class="text-xs text-green-500">Domain Requirements</span>
+                            </label>` : ''}
+                        ${feature.has_progress ? `
+                            <label class="flex items-center gap-2 cursor-pointer py-0.5">
+                                <input type="checkbox" class="content-cb" data-fi="${fi}" data-type="progress" checked>
+                                <span class="text-xs text-yellow-500">Progress Log</span>
+                            </label>` : ''}
+                        ${feature.has_agents_md ? `
+                            <label class="flex items-center gap-2 cursor-pointer py-0.5">
+                                <input type="checkbox" class="content-cb" data-fi="${fi}" data-type="agents" checked>
+                                <span class="text-xs text-purple-500">Agents</span>
+                            </label>` : ''}
+                        ${feature.has_implementation_plan ? `
+                            <label class="flex items-center gap-2 cursor-pointer py-0.5">
+                                <input type="checkbox" class="content-cb" data-fi="${fi}" data-type="plan" checked>
+                                <span class="text-xs text-blue-500">Implementation Plan</span>
+                            </label>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // --- Ralph Jobs ---
+    if (exportRalphJobs.length > 0) {
+        html += '<div class="border-t border-gray-700 mt-4 pt-3 mb-2"><span class="text-xs font-semibold uppercase tracking-wider text-orange-400">Ralph Jobs</span></div>';
+        html += exportRalphJobs.map((job, ri) => {
+            const statusColor = job.status === 'completed' ? 'text-green-500' : job.status === 'running' ? 'text-blue-500' : 'text-gray-500';
+            return `
+                <div class="mb-3">
+                    <div class="flex items-center gap-2 mb-1">
+                        <button onclick="toggleRalphExpand(${ri})"
+                                class="text-gray-400 hover:text-gray-200 text-xs w-5 text-center"
+                                id="ralph-expand-btn-${ri}">\u25B6</button>
+                        <label class="flex items-center gap-2 cursor-pointer flex-1">
+                            <input type="checkbox" class="ralph-cb" data-ri="${ri}"
+                                   onchange="updateDownloadButton()" checked>
+                            <span class="text-sm font-medium">${escapeHtmlExport(job.slug)}</span>
+                            ${job.mode ? `<span class="text-xs text-gray-500">${escapeHtmlExport(job.mode)}</span>` : ''}
+                            ${job.status ? `<span class="text-xs ${statusColor}">${escapeHtmlExport(job.status)}</span>` : ''}
+                        </label>
+                    </div>
+                    <div id="ralph-items-${ri}" class="ml-7 hidden space-y-1">
+                        ${job.has_task ? `
+                            <label class="flex items-center gap-2 cursor-pointer py-0.5">
+                                <input type="checkbox" class="ralph-content-cb" data-ri="${ri}" data-type="task" checked>
+                                <span class="text-xs text-orange-400">Task Description</span>
+                            </label>` : ''}
+                        ${job.has_plan ? `
+                            <label class="flex items-center gap-2 cursor-pointer py-0.5">
+                                <input type="checkbox" class="ralph-content-cb" data-ri="${ri}" data-type="plan" checked>
+                                <span class="text-xs text-blue-500">Implementation Plan</span>
+                            </label>` : ''}
+                        ${job.has_progress ? `
+                            <label class="flex items-center gap-2 cursor-pointer py-0.5">
+                                <input type="checkbox" class="ralph-content-cb" data-ri="${ri}" data-type="progress" checked>
+                                <span class="text-xs text-yellow-500">Progress Log</span>
+                            </label>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    tree.innerHTML = html;
+    updateDownloadButton();
+}
+
+function toggleRalphExpand(ri) {
+    const el = document.getElementById(`ralph-items-${ri}`);
+    const btn = document.getElementById(`ralph-expand-btn-${ri}`);
+    if (el.classList.contains('hidden')) {
+        el.classList.remove('hidden');
+        btn.textContent = '\u25BC';
+    } else {
+        el.classList.add('hidden');
+        btn.textContent = '\u25B6';
+    }
+}
+
+function toggleFeatureExpand(fi) {
+    const el = document.getElementById(`diagrams-${fi}`);
+    const btn = document.getElementById(`expand-btn-${fi}`);
+    if (el.classList.contains('hidden')) {
+        el.classList.remove('hidden');
+        btn.textContent = '\u25BC';
+    } else {
+        el.classList.add('hidden');
+        btn.textContent = '\u25B6';
+    }
+}
+
+function onFeatureToggle(fi) {
+    const featureCb = document.querySelector(`.feature-cb[data-fi="${fi}"]`);
+    const diagramCbs = document.querySelectorAll(`.diagram-cb[data-fi="${fi}"]`);
+    diagramCbs.forEach(cb => cb.checked = featureCb.checked);
+    updateDownloadButton();
+}
+
+function onDiagramToggle(fi) {
+    const featureCb = document.querySelector(`.feature-cb[data-fi="${fi}"]`);
+    const diagramCbs = document.querySelectorAll(`.diagram-cb[data-fi="${fi}"]`);
+    const checked = [...diagramCbs].filter(cb => cb.checked).length;
+    featureCb.checked = checked > 0;
+    featureCb.indeterminate = checked > 0 && checked < diagramCbs.length;
+    updateDownloadButton();
+}
+
+function selectAllExport(select) {
+    document.querySelectorAll('.feature-cb, .diagram-cb, .content-cb, .ralph-cb, .ralph-content-cb').forEach(cb => {
+        cb.checked = select;
+        cb.indeterminate = false;
+    });
+    updateDownloadButton();
+}
+
+function updateDownloadButton() {
+    const anyFeature = document.querySelectorAll('.feature-cb:checked').length > 0;
+    const anyRalph = document.querySelectorAll('.ralph-cb:checked').length > 0;
+    document.getElementById('export-download-btn').disabled = !(anyFeature || anyRalph);
+}
+
+function collectSelectedFeatures() {
+    return exportFeatures.map((feature, fi) => {
+        const featureCb = document.querySelector(`.feature-cb[data-fi="${fi}"]`);
+        if (!featureCb.checked && !featureCb.indeterminate) return null;
+
+        const diagramCbs = document.querySelectorAll(`.diagram-cb[data-fi="${fi}"]:checked`);
+        const selectedDiagrams = [...diagramCbs].map(cb => {
+            const di = parseInt(cb.dataset.di);
+            return feature.diagrams[di].file;
+        });
+
+        const getContentToggle = (type) => {
+            const cb = document.querySelector(`.content-cb[data-fi="${fi}"][data-type="${type}"]`);
+            return cb ? cb.checked : true;
+        };
+
+        return {
+            name: feature.name,
+            diagrams: selectedDiagrams,
+            include_requirements: getContentToggle('requirements'),
+            include_progress: getContentToggle('progress'),
+            include_agents: getContentToggle('agents'),
+            include_implementation_plan: getContentToggle('plan'),
+        };
+    }).filter(Boolean);
+}
+
+function collectSelectedRalphJobs() {
+    return exportRalphJobs.map((job, ri) => {
+        const cb = document.querySelector(`.ralph-cb[data-ri="${ri}"]`);
+        if (!cb || !cb.checked) return null;
+
+        const getToggle = (type) => {
+            const tcb = document.querySelector(`.ralph-content-cb[data-ri="${ri}"][data-type="${type}"]`);
+            return tcb ? tcb.checked : true;
+        };
+
+        return {
+            slug: job.slug,
+            include_task: getToggle('task'),
+            include_plan: getToggle('plan'),
+            include_progress: getToggle('progress'),
+        };
+    }).filter(Boolean);
+}
+
+async function startExport() {
+    const btn = document.getElementById('export-download-btn');
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Generating...';
+
+    const selected = collectSelectedFeatures();
+    const selectedRalph = collectSelectedRalphJobs();
+    const offline = document.getElementById('export-offline-cb')?.checked || false;
+    const defaultTheme = document.getElementById('export-theme-select')?.value || 'dark';
+
+    try {
+        const resp = await fetch(`/api/projects/${PROJECT_ID}/export`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ features: selected, ralph_jobs: selectedRalph, offline, default_theme: defaultTheme }),
+        });
+
+        if (!resp.ok) throw new Error('Export failed');
+
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = resp.headers.get('Content-Disposition')
+            ?.match(/filename="(.+?)"/)?.[1] || 'export.html';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+
+        closeExportModal();
+    } catch (err) {
+        alert('Export failed: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = origText;
+    }
+}
+
+function escapeHtmlExport(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,39 @@
+Feature: architecture-chat
+Status: Completed
+
+--- Progress Log ---
+
+---
+Iteration: 2
+Time: 2026-02-12 00:00:00
+
+WHAT WAS DONE:
+- vista/server/routes/chat_sessions.py: removed CLI fallback and enforce ProviderRouter-only streaming with 503/502 handling.
+- vista/server/services/chat_service.py: replaced legacy CLI logic with a deprecated placeholder.
+- vista/server/routes/providers.py: added provider availability from lifecycle health.
+- vista/server/views/architecture.html: removed keep-alive UI, disabled offline providers, cleaned up header.
+- vista/requirements.txt: added watchdog + websockets dependencies.
+- vista/tests/test_architecture.py: aligned prompt tests to ContextAssembler.
+- .vista/features/architecture-chat/IMPLEMENTATION_PLAN.md: synced plan status with actual code and line counts.
+
+WHAT WAS NOT DONE:
+- N/A (all phases complete)
+
+Tests: Not run (not requested)
+---
+ALL PHASES COMPLETE
+
+---
+Iteration: 3
+Time: 2026-02-12 00:00:00
+
+WHAT WAS DONE:
+- Fixed test regressions related to ralph lifecycle/stale PID handling and config env overrides.
+- Updated ralph start/status tooling checks for duplicate running jobs and running-status test coverage.
+- Ran full test suite and resolved failures.
+
+WHAT WAS NOT DONE:
+- N/A
+
+Tests: python -m pytest tests/ -q
+---

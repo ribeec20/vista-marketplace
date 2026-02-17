@@ -1,0 +1,159 @@
+/* Terminal styling */
+.terminal-output {
+    background-color: #0d1117;
+    color: #c9d1d9;
+    font-family: 'Geist', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    border-radius: 8px;
+}
+
+.terminal-output .line-iteration {
+    color: #58a6ff;
+    font-weight: 600;
+}
+
+.terminal-output .line-error {
+    color: #f85149;
+}
+
+.terminal-output .line-success {
+    color: #3fb950;
+}
+
+.terminal-output .line-ralph-control {
+    color: #d2a8ff;
+}
+
+/* Status badge colors */
+.status-running { color: #3fb950; }
+.status-completed { color: #58a6ff; }
+.status-failed { color: #f85149; }
+.status-stopped { color: #d29922; }
+.status-idle { color: #8b949e; }
+
+/* Card styling with professional shadows */
+.project-card {
+    background: var(--color-cc-card, #ffffff);
+    border: 1px solid var(--color-cc-border, rgba(0,0,0,0.08));
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
+    transition: all 200ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.project-card:hover {
+    border-color: var(--color-cc-primary, #ae5630);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+    transform: translateY(-1px);
+}
+
+/* Scrollbar styling for terminal */
+.terminal-output::-webkit-scrollbar {
+    width: 8px;
+}
+
+.terminal-output::-webkit-scrollbar-track {
+    background: #0d1117;
+}
+
+.terminal-output::-webkit-scrollbar-thumb {
+    background: #30363d;
+    border-radius: 4px;
+}
+
+.terminal-output::-webkit-scrollbar-thumb:hover {
+    background: #484f58;
+}
+
+/* Background for mid-gray panels */
+.bg-gray-750 {
+    background-color: #1c2128;
+}
+
+.bg-gray-850 {
+    background-color: #111827;
+}
+
+/* Project tab buttons with smooth transitions */
+.project-tab-btn {
+    font-family: 'Geist', system-ui, sans-serif;
+    font-weight: 500;
+    transition: color 150ms cubic-bezier(0.25, 1, 0.5, 1), 
+                background-color 150ms cubic-bezier(0.25, 1, 0.5, 1), 
+                border-color 150ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* Enhanced shadow system */
+.shadow-xl {
+    box-shadow: 0 20px 30px -15px rgba(0, 0, 0, 0.5);
+}
+
+.shadow-sm {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.shadow-md {
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.06), 0 2px 4px -1px rgba(0,0,0,0.03);
+}
+
+.shadow-lg {
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
+}
+
+/* Button styling */
+.btn {
+    font-family: 'Geist', system-ui, sans-serif;
+    font-weight: 500;
+    border-radius: 8px;
+    padding: 8px 16px;
+    transition: all 150ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.btn-primary {
+    background-color: var(--color-cc-primary, #ae5630);
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: var(--color-cc-primary-hover, #c4643a);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(174, 86, 48, 0.3);
+}
+
+/* Badge styling */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: 'Geist', system-ui, sans-serif;
+    border-radius: 20px;
+    transition: all 150ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* Form inputs */
+input, textarea, select {
+    font-family: 'Geist', system-ui, sans-serif;
+    border-radius: 8px;
+    border: 1px solid var(--color-cc-border, rgba(0,0,0,0.08));
+    transition: all 150ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--color-cc-primary, #ae5630);
+    box-shadow: 0 0 0 3px rgba(174, 86, 48, 0.1);
+}
+
+/* Focus visible styling */
+:focus-visible {
+    outline: 2px solid var(--color-cc-primary, #ae5630);
+    outline-offset: 2px;
+}
+
+/* Selection styling */
+::selection {
+    background: var(--color-cc-primary, #ae5630);
+    color: white;
+}

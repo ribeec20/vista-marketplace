@@ -1,0 +1,1623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ diagram_name }} - {{ feature_name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@15/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/plantuml-encoder@1.4.0/dist/plantuml-encoder.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background: #0f172a;
+            color: #e2e8f0;
+            overflow: hidden;
+            height: 100vh;
+        }
+        .toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 48px;
+            background: #1e293b;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            z-index: 20;
+        }
+        .toolbar a {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.875rem;
+        }
+        .toolbar a:hover {
+            color: #e2e8f0;
+        }
+        .toolbar-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        .toolbar-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .toolbar-controls button {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            background: #334155;
+            color: #e2e8f0;
+            border: 1px solid #475569;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+        }
+        .toolbar-controls button:hover {
+            background: #475569;
+        }
+        .toolbar-controls .zoom-label {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            min-width: 40px;
+            text-align: center;
+        }
+        .theme-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            background: #334155;
+            border-radius: 6px;
+            padding: 2px;
+            margin-left: 12px;
+        }
+        .theme-toggle button {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: auto;
+        }
+        .theme-toggle button.active {
+            background: #0f172a;
+            color: #e2e8f0;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        .theme-toggle button:hover:not(.active) {
+            color: #e2e8f0;
+        }
+        .diagram-area {
+            position: absolute;
+            top: 48px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+            cursor: grab;
+        }
+        .diagram-area:active {
+            cursor: grabbing;
+        }
+        .diagram-viewport {
+            transform-origin: 0 0;
+            padding: 32px;
+            display: inline-block;
+        }
+        .diagram-viewport .mermaid svg {
+            max-width: none;
+        }
+        /* Visibility: thicker lines and larger text */
+        .diagram-viewport .mermaid svg .flowchart-link,
+        .diagram-viewport .mermaid svg .edge-pattern-dotted,
+        .diagram-viewport .mermaid svg path.path,
+        .diagram-viewport .mermaid svg path[class*="edge"],
+        .diagram-viewport .mermaid svg line {
+            stroke-width: 2.5px !important;
+        }
+        .diagram-viewport .mermaid svg .edgeLabel,
+        .diagram-viewport .mermaid svg .nodeLabel,
+        .diagram-viewport .mermaid svg .label {
+            font-size: 14px !important;
+        }
+        .diagram-viewport .mermaid svg .edgeLabel {
+            font-size: 12px !important;
+        }
+        .diagram-viewport .mermaid svg marker path {
+            stroke-width: 1.5px !important;
+        }
+        .error-msg {
+            color: #f87171;
+            padding: 32px;
+            text-align: center;
+        }
+        .fit-btn {
+            font-size: 0.7rem !important;
+            width: auto !important;
+            padding: 0 8px !important;
+        }
+        /* Update flash on diagram area */
+        .diagram-area.updating {
+            animation: diagram-update-flash 1s ease-in-out;
+        }
+        @keyframes diagram-update-flash {
+            0% { box-shadow: inset 0 0 0 2px rgba(34,197,94,0.5); }
+            100% { box-shadow: inset 0 0 0 0 transparent; }
+        }
+        /* Node selection highlight */
+        .node-selected > rect,
+        .node-selected > polygon,
+        .node-selected > circle,
+        .node-selected > ellipse {
+            stroke: #f59e0b !important;
+            stroke-width: 3px !important;
+            filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.5));
+        }
+        .node-selected {
+            cursor: pointer;
+        }
+        /* Notion-style Chat Panel - shared styles */
+        .chat-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 420px;
+            max-width: 90vw;
+            height: 100vh;
+            background: #1a1a1a;
+            border-left: 1px solid #2d2d2d;
+            transform: translateX(100%);
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -4px 0 24px rgba(0,0,0,0.4);
+        }
+        .chat-panel.open { transform: translateX(0); }
+        
+        .chat-toggle {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: #2563eb;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            z-index: 51;
+            transition: background 0.2s, opacity 0.2s, transform 0.2s;
+        }
+        .chat-toggle:hover { background: #1d4ed8; }
+        .chat-toggle.hidden-fab { opacity: 0; pointer-events: none; transform: scale(0.5); }
+        
+        .chat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid #2d2d2d;
+            background: #1a1a1a;
+        }
+        .chat-header-dropdown {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: transparent;
+            border: none;
+            color: #d4d4d4;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 6px;
+        }
+        .chat-header-dropdown:hover { background: #252525; }
+        .chat-header-actions { display: flex; align-items: center; gap: 4px; }
+        .chat-header-btn {
+            width: 32px; height: 32px; border-radius: 6px;
+            background: transparent; border: none; color: #737373;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .chat-header-btn:hover { background: #252525; color: #a3a3a3; }
+        
+        .session-popup {
+            position: absolute; top: 52px; left: 16px; right: 16px;
+            background: #252525; border: 1px solid #2d2d2d;
+            border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            z-index: 100; max-height: 300px; overflow: hidden; display: none;
+        }
+        .session-popup.open { display: block; }
+        .session-popup-header {
+            padding: 12px 16px; border-bottom: 1px solid #2d2d2d;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .session-new-btn {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 12px; background: #2563eb; border: none;
+            border-radius: 6px; color: white; font-size: 0.8125rem;
+            cursor: pointer;
+        }
+        .session-new-btn:hover { background: #3b82f6; }
+        .session-list { max-height: 200px; overflow-y: auto; padding: 4px; }
+        .session-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 12px; border-radius: 8px; cursor: pointer;
+        }
+        .session-item:hover { background: #2a2a2a; }
+        .session-item.active { background: rgba(99, 102, 241, 0.1); }
+        .session-item-info { display: flex; flex-direction: column; gap: 2px; }
+        .session-item-name { font-size: 0.875rem; color: #d4d4d4; font-weight: 500; }
+        .session-item-meta { font-size: 0.75rem; color: #737373; }
+        .session-item-delete {
+            width: 28px; height: 28px; border-radius: 6px;
+            background: transparent; border: none; color: #737373;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            opacity: 0;
+        }
+        .session-item:hover .session-item-delete { opacity: 1; }
+        .session-item-delete:hover { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+        
+        .chat-config-bar {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 16px; border-bottom: 1px solid #2d2d2d; background: #1a1a1a;
+        }
+        .chat-config-select {
+            padding: 6px 10px; background: #252525; border: 1px solid #2d2d2d;
+            border-radius: 6px; color: #d4d4d4; font-size: 0.8125rem; cursor: pointer;
+        }
+        
+        .service-status-bar {
+            display: flex; align-items: center; gap: 12px;
+            padding: 8px 16px; border-bottom: 1px solid #2d2d2d; background: #1a1a1a;
+        }
+        .service-indicator { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #737373; }
+        .service-dot { width: 6px; height: 6px; border-radius: 50%; background: #ef4444; }
+        .service-dot.online { background: #22c55e; }
+        
+        .attached-context-bar, .selected-elements-bar {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 16px; border-bottom: 1px solid #2d2d2d;
+        }
+        .attached-context-bar { background: rgba(37, 99, 235, 0.05); }
+        .selected-elements-bar { background: rgba(245, 158, 11, 0.05); }
+        .context-item, .selected-chip {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 8px; border-radius: 4px; font-size: 0.75rem;
+        }
+        .context-item { background: rgba(37, 99, 235, 0.1); border: 1px solid rgba(37, 99, 235, 0.2); color: #60a5fa; }
+        .selected-chip { background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); color: #fbbf24; }
+        
+        .chat-messages {
+            flex: 1; overflow-y: auto; padding: 20px 16px;
+            display: flex; flex-direction: column;
+        }
+        
+        .chat-welcome {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 40px 20px; text-align: center;
+        }
+        .chat-welcome-avatar {
+            width: 48px; height: 48px; border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 16px;
+        }
+        .chat-welcome-title { font-size: 1.125rem; font-weight: 600; color: #f5f5f5; margin-bottom: 24px; }
+        .chat-suggestions { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 8px; }
+        .chat-suggestion {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 16px; background: #252525; border: 1px solid #2d2d2d;
+            border-radius: 8px; cursor: pointer; text-align: left;
+        }
+        .chat-suggestion:hover { background: #2a2a2a; border-color: #3d3d3d; }
+        .chat-suggestion-icon { width: 20px; height: 20px; color: #a3a3a3; flex-shrink: 0; }
+        .chat-suggestion-text { font-size: 0.875rem; color: #d4d4d4; }
+        
+        .chat-msg { margin-bottom: 16px; animation: msgSlideIn 0.2s ease-out; }
+        @keyframes msgSlideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .chat-msg.user { display: flex; justify-content: flex-end; }
+        .chat-msg.user .msg-bubble {
+            background: #2563eb; color: white; padding: 10px 14px;
+            border-radius: 16px 16px 4px 16px; max-width: 85%;
+            font-size: 0.9375rem; line-height: 1.5;
+        }
+        .chat-msg.assistant { display: flex; gap: 12px; align-items: flex-start; }
+        .msg-avatar {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .msg-avatar svg { width: 14px; height: 14px; color: white; }
+        .msg-content { flex: 1; color: #e5e5e5; font-size: 0.9375rem; line-height: 1.6; }
+        .msg-content p { margin: 0 0 12px 0; }
+        .msg-content p:last-child { margin-bottom: 0; }
+        .msg-content pre { background: #252525; padding: 12px; border-radius: 8px; overflow-x: auto; margin: 12px 0; border: 1px solid #2d2d2d; }
+        .msg-content code { font-family: ui-monospace, monospace; font-size: 0.8125rem; }
+        .msg-content :not(pre) > code { background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; }
+        .msg-content ul, .msg-content ol { margin: 12px 0; padding-left: 24px; }
+        
+        .chat-thinking { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 16px; }
+        .thinking-content {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 14px; background: #252525;
+            border-radius: 12px; font-size: 0.9375rem; color: #a3a3a3;
+        }
+        .thinking-dots { display: flex; gap: 4px; }
+        .thinking-dot { width: 6px; height: 6px; border-radius: 50%; background: #6366f1; animation: dotBounce 1.4s ease-in-out infinite both; }
+        .thinking-dot:nth-child(1) { animation-delay: -0.32s; }
+        .thinking-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes dotBounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+        
+        .chat-input-container { padding: 16px; border-top: 1px solid #2d2d2d; background: #1a1a1a; }
+        .chat-input-wrapper { background: #252525; border: 1px solid #2d2d2d; border-radius: 12px; padding: 12px; }
+        .chat-input-wrapper:focus-within { border-color: #404040; box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1); }
+        .chat-input-context { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #2d2d2d; }
+        .context-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #2a2a2a; border-radius: 6px; font-size: 0.75rem; color: #a3a3a3; }
+        .chat-input-area { display: flex; gap: 12px; align-items: flex-end; }
+        .chat-input-area textarea {
+            flex: 1; background: transparent; border: none; color: #f5f5f5;
+            padding: 0; resize: none; font-size: 0.9375rem; line-height: 1.5;
+            min-height: 24px; max-height: 120px; font-family: inherit;
+        }
+        .chat-input-area textarea::placeholder { color: #737373; }
+        .chat-input-area textarea:focus { outline: none; }
+        .chat-input-actions { display: flex; align-items: center; gap: 8px; }
+        .chat-input-btn { width: 32px; height: 32px; border-radius: 8px; background: transparent; border: none; color: #737373; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .chat-input-btn:hover { background: #2d2d2d; color: #a3a3a3; }
+        .chat-send-btn { width: 32px; height: 32px; border-radius: 8px; background: #2563eb; border: none; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .chat-send-btn:hover { background: #3b82f6; }
+        .chat-send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        /* Markdown content styles */
+        .markdown-content {
+            padding: 16px;
+            line-height: 1.7;
+            color: #e2e8f0;
+        }
+        .markdown-content h1,
+        .markdown-content h2,
+        .markdown-content h3 {
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            color: #f1f5f9;
+        }
+        .markdown-content h1 { font-size: 1.5rem; font-weight: 700; }
+        .markdown-content h2 { font-size: 1.25rem; font-weight: 600; }
+        .markdown-content h3 { font-size: 1.1rem; font-weight: 600; }
+        .markdown-content p { margin: 0 0 1em 0; }
+        .markdown-content pre {
+            background: #1e293b;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 1em 0;
+        }
+        .markdown-content code {
+            background: #1e293b;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.9em;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+        .markdown-content pre code { background: transparent; padding: 0; }
+        .markdown-content table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+        .markdown-content th,
+        .markdown-content td {
+            border: 1px solid #334155;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        .markdown-content th { background: #1e293b; font-weight: 600; }
+        .markdown-content ul,
+        .markdown-content ol { margin: 0.5em 0; padding-left: 1.5em; }
+        .markdown-content li { margin: 0.25em 0; }
+        .markdown-content blockquote {
+            border-left: 3px solid #475569;
+            padding-left: 1em;
+            color: #94a3b8;
+            margin: 1em 0;
+        }
+        .markdown-content a { color: #60a5fa; text-decoration: underline; }
+        .markdown-content a:hover { color: #93c5fd; }
+
+        /* Diagram error & raw source styles */
+        .diagram-error { padding: 16px; }
+        .diagram-raw-source { padding: 16px; }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <div class="flex items-center gap-4">
+            <a href="/project/{{ project.id }}/arch/{{ feature_name }}">&larr; Back</a>
+            <span class="toolbar-title">{{ diagram_name }}</span>
+            <span class="text-gray-500 text-xs">{{ feature_name }}</span>
+        </div>
+        <div class="toolbar-controls">
+            <button onclick="zoomBy(-0.2)" title="Zoom out">&minus;</button>
+            <span class="zoom-label" id="zoom-label">100%</span>
+            <button onclick="zoomBy(0.2)" title="Zoom in">+</button>
+            <button onclick="resetView()" title="Reset">1:1</button>
+            <button class="fit-btn" onclick="fitToScreen()" title="Fit diagram to screen">Fit</button>
+            <div class="theme-toggle">
+                <button class="active" data-theme="dark" onclick="setTheme('dark')">&#9790;</button>
+                <button data-theme="light" onclick="setTheme('light')">&#9788;</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="diagram-area" id="diagram-area">
+        <div class="diagram-viewport" id="viewport">
+            <div class="mermaid" id="mermaid-el">Loading diagram...</div>
+        </div>
+    </div>
+
+    <!-- Chat FAB -->
+    <button class="chat-toggle" id="chat-fab" onclick="toggleChat()" title="Open AI Chat">
+        &#x1f4ac;
+    </button>
+
+    <!-- Chat Panel -->
+    <div class="chat-panel" id="chat-panel">
+        <!-- Header -->
+        <div class="chat-header">
+            <button class="chat-header-dropdown" onclick="toggleSessionPopup()">
+                <span id="current-session-name">New AI chat</span>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+            <div class="chat-header-actions">
+                <button class="chat-header-btn" onclick="createNewSession()" title="New session">
+                    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+                </button>
+                <button class="chat-header-btn" onclick="toggleChat()" title="Close">
+                    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Session Popup -->
+        <div class="session-popup" id="session-popup">
+            <div class="session-popup-header">
+                <span style="font-size: 0.875rem; font-weight: 600; color: #f5f5f5;">Chat Sessions</span>
+                <button class="session-new-btn" onclick="createNewSession(); toggleSessionPopup();">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+                    New
+                </button>
+            </div>
+            <div class="session-list" id="session-list"></div>
+        </div>
+
+        <!-- Provider / Model Config -->
+        <div class="chat-config-bar">
+            {% if providers|length > 1 %}
+            <select id="chat-provider" class="chat-config-select" onchange="onProviderChange()">
+                {% for p in providers %}
+                <option value="{{ p.name }}">{{ p.display_name }}</option>
+                {% endfor %}
+            </select>
+            {% else %}
+            <input type="hidden" id="chat-provider" value="{{ providers[0].name if providers else 'claude' }}">
+            {% endif %}
+            <select id="chat-model" class="chat-config-select">
+                <option disabled selected>Loading models...</option>
+            </select>
+        </div>
+
+        <!-- Service Status -->
+        <div class="service-status-bar">
+            <div class="service-indicator">
+                <span class="service-dot" id="status-companion"></span>
+                <span>Claude</span>
+            </div>
+            <div class="service-indicator">
+                <span class="service-dot" id="status-opencode"></span>
+                <span>OpenCode</span>
+            </div>
+        </div>
+
+        <!-- Attached Context -->
+        <div class="attached-context-bar" id="attached-context">
+            <span style="font-size: 0.75rem; color: #737373; font-weight: 500;">Attached:</span>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; flex: 1;">
+                <span class="context-item">{{ filename }}</span>
+            </div>
+        </div>
+
+        <!-- Selected Elements -->
+        <div class="selected-elements-bar" id="selected-elements-bar" style="display: none;">
+            <span style="font-size: 0.75rem; color: #737373; font-weight: 500;">Focus:</span>
+            <div id="selected-elements-list" style="display: flex; flex-wrap: wrap; gap: 6px; flex: 1;"></div>
+            <button onclick="clearAllSelections()" style="padding: 4px 10px; background: transparent; border: 1px solid #2d2d2d; border-radius: 4px; color: #737373; font-size: 0.75rem; cursor: pointer;">Clear</button>
+        </div>
+
+        <!-- Messages area -->
+        <div class="chat-messages" id="chat-messages">
+            <!-- Welcome State -->
+            <div class="chat-welcome" id="chat-welcome">
+                <div class="chat-welcome-avatar">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 3c-4.5 0-8 3.5-8 8 0 2.5 1.5 4.5 3 6l-1 4 4-1c1.5.5 3 .5 4.5.5 4.5 0 8-3.5 8-8s-3.5-8-8-8z"/>
+                    </svg>
+                </div>
+                <div class="chat-welcome-title">How can I help you today?</div>
+                <div class="chat-suggestions">
+                    <div class="chat-suggestion" onclick="setChatInput('Review the architecture of this diagram')">
+                        <svg class="chat-suggestion-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 1v14M1 8h14"/></svg>
+                        <span class="chat-suggestion-text">Review this diagram</span>
+                    </div>
+                    <div class="chat-suggestion" onclick="setChatInput('What are the key components in this diagram?')">
+                        <svg class="chat-suggestion-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+                        <span class="chat-suggestion-text">Explain key components</span>
+                    </div>
+                    <div class="chat-suggestion" onclick="setChatInput('Suggest improvements to this diagram')">
+                        <svg class="chat-suggestion-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 1l1.796 3.64L14 5.255l-3 2.924.708 4.126L8 10.5l-3.708 1.805L5 8.18 2 5.255l4.204-.615L8 1z"/></svg>
+                        <span class="chat-suggestion-text">Suggest improvements</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Container -->
+        <div class="chat-input-container">
+            <div class="chat-input-wrapper">
+                <div class="chat-input-context" id="input-context" style="display: none;">
+                    <span class="context-badge">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4h12M2 8h12M2 12h12"/></svg>
+                        <span id="context-count">0 nodes selected</span>
+                    </span>
+                </div>
+                <div class="chat-input-area">
+                    <textarea id="chat-input" rows="1" placeholder="Ask about the architecture..." disabled></textarea>
+                    <div class="chat-input-actions">
+                        <button class="chat-input-btn" id="cancel-btn" onclick="cancelChat()" style="display: none;" title="Cancel">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+                        </button>
+                        <button class="chat-send-btn" id="chat-send-btn" onclick="sendChat()" disabled title="Send">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 8l12-6v12L2 8z"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const PROJECT_ID = '{{ project.id }}';
+    const FEATURE_NAME = '{{ feature_name }}';
+    const FILENAME = '{{ filename }}';
+    const PROVIDERS = {{ providers | tojson }};
+    const PLANTUML_SERVER_URL = {{ (plantuml_url | default("https://www.plantuml.com/plantuml")) | tojson }};
+
+    // --- State ---
+    const selectedElements = new Set(); // Set<nodeId>
+    let diagramContent = '';
+    let currentSessionId = null;
+    let eventSource = null;
+    let isStreaming = false;
+    let streamingMsgEl = null;
+    let streamingText = '';
+    let mermaidCounter = 0;
+    let chatMode = localStorage.getItem('vista-chat-mode') || 'oneshot';
+
+    // Pan & zoom state
+    let scale = 1, panX = 0, panY = 0;
+    let dragging = false, startX = 0, startY = 0;
+    let hasDragged = false;
+
+    // Theme
+    let currentTheme = 'dark';
+
+    const lightThemeVars = {
+        background: '#ffffff',
+        primaryColor: '#dbeafe',
+        primaryTextColor: '#1e293b',
+        primaryBorderColor: '#94a3b8',
+        lineColor: '#475569',
+        secondaryColor: '#f8fafc',
+        tertiaryColor: '#f1f5f9',
+        fontSize: '14px',
+    };
+    const darkThemeVars = {
+        darkMode: true,
+        background: '#0f172a',
+        primaryColor: '#1e3a5f',
+        primaryTextColor: '#e2e8f0',
+        primaryBorderColor: '#475569',
+        lineColor: '#94a3b8',
+        secondaryColor: '#1a2332',
+        tertiaryColor: '#0f172a',
+        fontSize: '14px',
+    };
+
+    mermaid.initialize({
+        startOnLoad: false,
+        theme: 'dark',
+        themeVariables: darkThemeVars,
+    });
+
+    marked.setOptions({ breaks: true, gfm: true });
+
+    // =========================================================================
+    // Diagram loading & rendering
+    // =========================================================================
+
+    async function loadDiagram() {
+        const el = document.getElementById('mermaid-el');
+        try {
+            const resp = await fetch(`/api/projects/${PROJECT_ID}/features/${FEATURE_NAME}/arch/${FILENAME}`);
+            if (!resp.ok) throw new Error('Failed to load');
+            diagramContent = await resp.text();
+            await renderDiagram();
+        } catch (err) {
+            el.innerHTML = `<div class="error-msg">Failed to load ${FILENAME}: ${err.message}</div>`;
+        }
+    }
+
+    // --- Renderer Map ---
+    const EXT_MAP = { mmd: 'mermaid', puml: 'plantuml', d2: 'd2', dot: 'graphviz', drawio: 'drawio', md: 'markdown' };
+
+    const RENDERERS = {
+        mermaid:  renderMermaidExpand,
+        plantuml: renderPlantUML,
+        d2:       renderD2,
+        graphviz: renderGraphviz,
+        drawio:   renderDrawio,
+        markdown: renderMarkdownExpand,
+    };
+
+    async function renderDiagram() {
+        const el = document.getElementById('mermaid-el');
+        const ext = FILENAME.split('.').pop();
+        const type = EXT_MAP[ext] || 'mermaid';
+        const renderer = RENDERERS[type];
+        if (renderer) {
+            await renderer(el, diagramContent);
+        } else {
+            el.innerHTML = `<pre style="color:#cbd5e1;font-size:13px;white-space:pre-wrap">${escapeHtml(diagramContent)}</pre>`;
+        }
+    }
+
+    // --- Mermaid Renderer ---
+    async function renderMermaidExpand(el, content) {
+        try {
+            const id = `mermaid-svg-expand-${++mermaidCounter}`;
+            const { svg } = await mermaid.render(id, content);
+            el.innerHTML = svg;
+
+            // Fix Mermaid 11+ sizing issues (it sets width=100% which collapses in our layout)
+            const svgEl = el.querySelector('svg');
+            if (svgEl && svgEl.viewBox && svgEl.viewBox.baseVal) {
+                svgEl.removeAttribute('width');
+                svgEl.style.maxWidth = 'none';
+                svgEl.style.width = 'auto';
+                svgEl.style.height = 'auto';
+                svgEl.setAttribute('width', svgEl.viewBox.baseVal.width);
+                svgEl.setAttribute('height', svgEl.viewBox.baseVal.height);
+            }
+
+            // Add click handlers on nodes for element selection
+            setupNodeClickHandlers();
+            // Re-apply any existing selections
+            reapplySelections();
+        } catch (e) {
+            el.innerHTML = `<pre style="color:#fbbf24;font-size:12px;white-space:pre-wrap">Mermaid parse error:\n${e.message || e}\n\n${escapeHtml(diagramContent)}</pre>`;
+        }
+    }
+
+    // --- PlantUML Renderer ---
+    async function renderPlantUML(el, content) {
+        try {
+            if (typeof plantumlEncoder === 'undefined') {
+                throw new Error('PlantUML encoder not loaded');
+            }
+            const encoded = plantumlEncoder.encode(content);
+            const svgUrl = `${PLANTUML_SERVER_URL}/svg/${encoded}`;
+            const resp = await fetch(svgUrl);
+            if (!resp.ok) throw new Error(`PlantUML server error: ${resp.status}`);
+            const svg = await resp.text();
+            el.innerHTML = svg;
+        } catch (err) {
+            el.innerHTML = `<div class="diagram-error">
+                <p class="text-yellow-400 text-sm mb-2">PlantUML render error: ${escapeHtml(err.message)}</p>
+                <pre class="text-gray-400 text-xs whitespace-pre-wrap">${escapeHtml(content)}</pre>
+            </div>`;
+        }
+    }
+
+    // --- D2 Renderer (hybrid: WASM -> Kroki -> raw source) ---
+    async function renderD2(el, content) {
+        // 1. Try Kroki public server
+        try {
+            const resp = await fetch('https://kroki.io/d2/svg', {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: content,
+            });
+            if (resp.ok) {
+                el.innerHTML = await resp.text();
+                return;
+            }
+        } catch (_) { /* fall through */ }
+
+        // 2. Raw source fallback
+        el.innerHTML = `<div class="diagram-raw-source">
+            <p class="text-blue-400 text-sm mb-2">D2 diagram (raw source — <a href="https://kroki.io" target="_blank" class="underline">Kroki</a> unavailable)</p>
+            <pre class="text-gray-300 text-xs whitespace-pre-wrap">${escapeHtml(content)}</pre>
+        </div>`;
+    }
+
+    // --- Graphviz Renderer (lazy-loaded @viz-js/viz WASM) ---
+    let vizInstance = null;
+
+    async function loadViz() {
+        if (vizInstance) return vizInstance;
+        if (!window.Viz) {
+            await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/@viz-js/viz@3.11.0/lib/viz-standalone.js';
+                script.onload = resolve;
+                script.onerror = () => reject(new Error('Failed to load Graphviz WASM'));
+                document.head.appendChild(script);
+            });
+        }
+        vizInstance = await Viz.instance();
+        return vizInstance;
+    }
+
+    async function renderGraphviz(el, content) {
+        try {
+            const viz = await loadViz();
+            const svg = viz.renderSVGElement(content);
+            el.innerHTML = '';
+            el.appendChild(svg);
+        } catch (err) {
+            el.innerHTML = `<div class="diagram-error">
+                <p class="text-yellow-400 text-sm mb-2">Graphviz render error: ${escapeHtml(err.message)}</p>
+                <pre class="text-gray-400 text-xs whitespace-pre-wrap">${escapeHtml(content)}</pre>
+            </div>`;
+        }
+    }
+
+    // --- Draw.io Renderer (embed via postMessage API) ---
+    function renderDrawio(el, content) {
+        try {
+            const iframe = document.createElement('iframe');
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            iframe.style.borderRadius = '8px';
+            // Embed mode: viewer waits for XML via postMessage
+            iframe.src = 'https://viewer.diagrams.net/?embed=1&spin=1&proto=json&nav=1';
+            iframe.addEventListener('load', function onLoad() {
+                // Listen for the 'init' message from the viewer, then send XML
+                const handler = (evt) => {
+                    if (evt.source !== iframe.contentWindow) return;
+                    try {
+                        const msg = JSON.parse(evt.data);
+                        if (msg.event === 'init') {
+                            iframe.contentWindow.postMessage(JSON.stringify({
+                                action: 'load',
+                                xml: content,
+                            }), '*');
+                            window.removeEventListener('message', handler);
+                        }
+                    } catch (_) {}
+                };
+                window.addEventListener('message', handler);
+            });
+            el.innerHTML = '';
+            el.appendChild(iframe);
+        } catch (err) {
+            el.innerHTML = `<div class="diagram-error">
+                <p class="text-yellow-400 text-sm mb-2">Draw.io render error: ${escapeHtml(err.message)}</p>
+                <pre class="text-gray-400 text-xs whitespace-pre-wrap">${escapeHtml(content)}</pre>
+            </div>`;
+        }
+    }
+
+    // --- Markdown Renderer ---
+    function renderMarkdownExpand(el, content) {
+        try {
+            const html = marked.parse(content);
+            el.innerHTML = `<div class="markdown-content">${html}</div>`;
+        } catch (err) {
+            el.innerHTML = `<pre class="text-gray-400 text-xs whitespace-pre-wrap">${escapeHtml(content)}</pre>`;
+        }
+    }
+
+    function setupNodeClickHandlers() {
+        const el = document.getElementById('mermaid-el');
+        el.querySelectorAll('.node').forEach(node => {
+            node.style.cursor = 'pointer';
+            node.addEventListener('click', (e) => {
+                // Don't trigger selection if user was dragging
+                if (hasDragged) return;
+                e.stopPropagation();
+                const nodeId = extractNodeId(node.id, node);
+                if (nodeId) toggleElementSelection(nodeId, node);
+            });
+        });
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // =========================================================================
+    // Pan & Zoom
+    // =========================================================================
+
+    function applyTransform() {
+        const vp = document.getElementById('viewport');
+        vp.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+        document.getElementById('zoom-label').textContent = Math.round(scale * 100) + '%';
+    }
+
+    function zoomBy(delta) {
+        scale = Math.max(0.1, Math.min(10, scale + delta));
+        applyTransform();
+    }
+
+    function resetView() {
+        scale = 1; panX = 0; panY = 0;
+        applyTransform();
+    }
+
+    function fitToScreen() {
+        const area = document.getElementById('diagram-area');
+        const svg = document.querySelector('#mermaid-el svg');
+        if (!svg || !area) return;
+        const areaW = area.clientWidth - 64;
+        const areaH = area.clientHeight - 64;
+        const svgW = svg.viewBox?.baseVal?.width || svg.getBoundingClientRect().width;
+        const svgH = svg.viewBox?.baseVal?.height || svg.getBoundingClientRect().height;
+        if (svgW <= 0 || svgH <= 0) return;
+        scale = Math.min(areaW / svgW, areaH / svgH, 10);
+        panX = 0; panY = 0;
+        applyTransform();
+    }
+
+    const area = document.getElementById('diagram-area');
+    area.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const factor = e.deltaY > 0 ? 0.95 : 1.05;
+        const newScale = Math.max(0.1, Math.min(10, scale * factor));
+        // Zoom toward mouse position
+        const rect = area.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        panX = mx - (mx - panX) * (newScale / scale);
+        panY = my - (my - panY) * (newScale / scale);
+        scale = newScale;
+        applyTransform();
+    }, { passive: false });
+
+    area.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        dragging = true;
+        hasDragged = false;
+        startX = e.clientX - panX;
+        startY = e.clientY - panY;
+        area.style.cursor = 'grabbing';
+    });
+    area.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        hasDragged = true;
+        panX = e.clientX - startX;
+        panY = e.clientY - startY;
+        applyTransform();
+    });
+    const stopDrag = () => { dragging = false; area.style.cursor = 'grab'; };
+    area.addEventListener('mouseup', stopDrag);
+    area.addEventListener('mouseleave', stopDrag);
+
+    // =========================================================================
+    // Theme
+    // =========================================================================
+
+    async function setTheme(theme) {
+        currentTheme = theme;
+        const body = document.body;
+        const toolbar = document.querySelector('.toolbar');
+        if (theme === 'light') {
+            body.style.background = '#f8fafc';
+            toolbar.style.background = '#ffffff';
+            toolbar.style.borderColor = '#e2e4e7';
+        } else {
+            body.style.background = '#0f172a';
+            toolbar.style.background = '#1e293b';
+            toolbar.style.borderColor = '#334155';
+        }
+        document.querySelectorAll('.theme-toggle button').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.theme === theme);
+        });
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: theme === 'light' ? 'default' : 'dark',
+            themeVariables: theme === 'light' ? lightThemeVars : darkThemeVars,
+        });
+        await renderDiagram();
+        applyTransform();
+    }
+
+    // =========================================================================
+    // Node selection
+    // =========================================================================
+
+    function extractNodeId(svgId, node) {
+        const flowMatch = svgId.match(/^flowchart-(.+?)-\d+$/);
+        if (flowMatch) return flowMatch[1];
+        const parts = svgId.split('-');
+        if (parts.length >= 2) return parts.slice(0, -1).join('-');
+        const text = node.textContent?.trim();
+        return text || null;
+    }
+
+    function toggleElementSelection(nodeId, svgElement) {
+        if (selectedElements.has(nodeId)) {
+            selectedElements.delete(nodeId);
+            svgElement.classList.remove('node-selected');
+        } else {
+            selectedElements.add(nodeId);
+            svgElement.classList.add('node-selected');
+        }
+        updateSelectedUI();
+    }
+
+    function getNodeConnections(nodeId) {
+        if (!diagramContent) return [];
+        const connections = [];
+        for (const line of diagramContent.split('\n')) {
+            const trimmed = line.trim();
+            if (trimmed && trimmed.includes(nodeId) && /[-=.]+>|[-=.]+\|/.test(trimmed)) {
+                connections.push(trimmed);
+            }
+        }
+        return connections;
+    }
+
+    function reapplySelections() {
+        if (selectedElements.size === 0) return;
+        const el = document.getElementById('mermaid-el');
+        el.querySelectorAll('.node').forEach(node => {
+            const nodeId = extractNodeId(node.id, node);
+            if (nodeId && selectedElements.has(nodeId)) {
+                node.classList.add('node-selected');
+            }
+        });
+    }
+
+    function updateSelectedUI() {
+        const bar = document.getElementById('selected-elements-bar');
+        const list = document.getElementById('selected-elements-list');
+        const inputContext = document.getElementById('input-context');
+        const contextCount = document.getElementById('context-count');
+        if (!bar || !list) return;
+
+        if (selectedElements.size > 0) {
+            let chips = '';
+            for (const nodeId of selectedElements) {
+                chips += `<span class="selected-chip">${escapeHtml(nodeId)}</span>`;
+            }
+            list.innerHTML = chips;
+            bar.style.display = 'flex';
+            
+            if (inputContext) inputContext.style.display = 'flex';
+            if (contextCount) contextCount.textContent = `${selectedElements.size} node${selectedElements.size !== 1 ? 's' : ''} selected`;
+        } else {
+            bar.style.display = 'none';
+            if (inputContext) inputContext.style.display = 'none';
+        }
+    }
+
+    function clearAllSelections() {
+        const el = document.getElementById('mermaid-el');
+        if (el) {
+            el.querySelectorAll('.node-selected').forEach(n => n.classList.remove('node-selected'));
+        }
+        selectedElements.clear();
+        updateSelectedUI();
+    }
+    
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g, '&amp;')
+                  .replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;')
+                  .replace(/"/g, '&quot;')
+                  .replace(/'/g, '&#039;');
+    }
+
+    // =========================================================================
+    // Chat panel toggle
+    // =========================================================================
+
+    function toggleChat() {
+        const panel = document.getElementById('chat-panel');
+        const fab = document.getElementById('chat-fab');
+        panel.classList.toggle('open');
+        const isOpen = panel.classList.contains('open');
+        fab.classList.toggle('hidden-fab', isOpen);
+        if (isOpen && !currentSessionId) {
+            loadSessions();
+        }
+    }
+
+    // =========================================================================
+    // Provider & model loading
+    // =========================================================================
+
+    let _modelFetchId = 0;
+
+    function renderModels(models) {
+        const select = document.getElementById('chat-model');
+        if (!select) return;
+        select.innerHTML = '';
+        models.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m; opt.textContent = m;
+            select.appendChild(opt);
+        });
+    }
+
+    async function fetchModels(providerName) {
+        const thisId = ++_modelFetchId;
+        const select = document.getElementById('chat-model');
+        if (select) select.innerHTML = '<option disabled selected>Loading models...</option>';
+        try {
+            const resp = await fetch(`/api/providers/${providerName}/models`);
+            if (thisId !== _modelFetchId) return;
+            if (!resp.ok) throw new Error('Failed');
+            const data = await resp.json();
+            if (thisId !== _modelFetchId) return;
+            if (data.error) {
+                if (select) select.innerHTML = '<option disabled selected>Timed out</option>';
+                return;
+            }
+            renderModels(data.models);
+        } catch {
+            if (thisId !== _modelFetchId) return;
+            if (select) select.innerHTML = '<option disabled selected>Failed</option>';
+        }
+    }
+
+    function getSelectedProvider() {
+        const sel = document.getElementById('chat-provider');
+        return sel ? sel.value : 'claude';
+    }
+
+    function onProviderChange() {
+        fetchModels(getSelectedProvider());
+    }
+
+    if (PROVIDERS.length > 0) fetchModels(PROVIDERS[0].name);
+
+    // =========================================================================
+    // Service Health Polling
+    // =========================================================================
+
+    async function pollServiceHealth() {
+        try {
+            const resp = await fetch('/api/services/health');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const services = data.services || [];
+            services.forEach(svc => {
+                const dotId = svc.name === 'companion' ? 'status-companion' : `status-${svc.name}`;
+                const dot = document.getElementById(dotId);
+                if (dot) {
+                    dot.classList.toggle('online', svc.status === 'running');
+                }
+            });
+        } catch {}
+    }
+
+    pollServiceHealth();
+    setInterval(pollServiceHealth, 10000);
+
+    // =========================================================================
+    // Chat Mode Toggle
+    // =========================================================================
+
+    function setChatMode(mode) {
+        chatMode = mode;
+        localStorage.setItem('vista-chat-mode', mode);
+        const toggle = document.getElementById('mode-toggle');
+        if (!toggle) return;
+        toggle.querySelectorAll('button').forEach(btn => {
+            const isActive = btn.dataset.mode === mode;
+            btn.classList.toggle('active', isActive);
+            if (isActive && mode === 'persistent') btn.classList.add('persistent');
+            else btn.classList.remove('persistent');
+        });
+        if (mode !== 'persistent') {
+            const dot = document.getElementById('agent-alive-dot');
+            if (dot) dot.classList.add('hidden');
+        }
+    }
+
+    setChatMode(chatMode);
+
+    function updateAliveDot(teamName) {
+        const dot = document.getElementById('agent-alive-dot');
+        if (!dot) return;
+        if (teamName && chatMode === 'persistent') dot.classList.remove('hidden');
+        else dot.classList.add('hidden');
+    }
+
+    // =========================================================================
+    // Session Management
+    // =========================================================================
+    
+    let _allSessions = [];
+
+    async function loadSessions() {
+        try {
+            const resp = await fetch(`/api/projects/${PROJECT_ID}/chat/sessions?feature=${FEATURE_NAME}`);
+            const sessions = await resp.json();
+            _allSessions = sessions;
+            renderSessionList();
+            
+            if (sessions.length > 0 && !currentSessionId) {
+                await loadSession(sessions[0].id);
+            }
+        } catch (err) {
+            console.error('Failed to load sessions:', err);
+        }
+    }
+    
+    function renderSessionList() {
+        const list = document.getElementById('session-list');
+        if (!list) return;
+        
+        if (_allSessions.length === 0) {
+            list.innerHTML = '<div style="padding: 20px; text-align: center; color: #737373; font-size: 0.875rem;">No sessions yet</div>';
+            return;
+        }
+        
+        list.innerHTML = _allSessions.map(s => {
+            const date = new Date(s.updated_at).toLocaleDateString();
+            const isActive = s.id === currentSessionId;
+            return `
+                <div class="session-item ${isActive ? 'active' : ''}" onclick="selectSession('${s.id}')">
+                    <div class="session-item-info">
+                        <div class="session-item-name">${escapeHtml(s.name)}</div>
+                        <div class="session-item-meta">${s.message_count} messages · ${date}</div>
+                    </div>
+                    <button class="session-item-delete" onclick="event.stopPropagation(); deleteSession('${s.id}')" title="Delete">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+                    </button>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    function toggleSessionPopup() {
+        document.getElementById('session-popup')?.classList.toggle('open');
+    }
+    
+    async function selectSession(sessionId) {
+        toggleSessionPopup();
+        if (sessionId === currentSessionId) return;
+        await loadSession(sessionId);
+    }
+
+    async function loadSession(sessionId) {
+        try {
+            if (currentSessionId && currentSessionId !== sessionId) {
+                fetch(`/api/projects/${PROJECT_ID}/chat/sessions/${currentSessionId}/cancel`, { method: 'POST' }).catch(() => {});
+            }
+
+            const resp = await fetch(`/api/projects/${PROJECT_ID}/chat/sessions/${sessionId}`);
+            if (!resp.ok) throw new Error('Session not found');
+            const session = await resp.json();
+
+            currentSessionId = sessionId;
+            
+            // Update header
+            const sessionNameEl = document.getElementById('current-session-name');
+            if (sessionNameEl) sessionNameEl.textContent = session.name;
+
+            if (session.provider) {
+                const providerEl = document.getElementById('chat-provider');
+                if (providerEl && providerEl.tagName === 'SELECT') providerEl.value = session.provider;
+                await fetchModels(session.provider);
+                if (session.model) {
+                    const modelEl = document.getElementById('chat-model');
+                    if (modelEl) modelEl.value = session.model;
+                }
+            }
+
+            const container = document.getElementById('chat-messages');
+            const welcome = document.getElementById('chat-welcome');
+            if (welcome) welcome.style.display = 'none';
+            container.innerHTML = '';
+            
+            if (session.messages.length === 0) {
+                if (welcome) welcome.style.display = 'flex';
+            } else {
+                session.messages.forEach(m => appendMessage(m.role, m.content, false));
+            }
+
+            updateAliveDot(session.team_name);
+            setChatEnabled(true);
+            connectSSE(sessionId);
+            renderSessionList();
+        } catch (err) {
+            console.error('Failed to load session:', err);
+        }
+    }
+
+    async function createNewSession() {
+        const provider = getSelectedProvider();
+        const model = document.getElementById('chat-model').value;
+        if (!model) { alert('Select a model first'); return; }
+
+        try {
+            const resp = await fetch(`/api/projects/${PROJECT_ID}/chat/sessions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    feature_name: FEATURE_NAME,
+                    provider: provider,
+                    model: model,
+                    mode: chatMode,
+                }),
+            });
+            const session = await resp.json();
+
+            await loadSessions();
+            await loadSession(session.id);
+        } catch (err) {
+            console.error('Failed to create session:', err);
+        }
+    }
+    
+    async function deleteSession(sessionId) {
+        if (!confirm('Delete this chat session?')) return;
+        try {
+            await fetch(`/api/projects/${PROJECT_ID}/chat/sessions/${sessionId}`, { method: 'DELETE' });
+            
+            if (currentSessionId === sessionId) {
+                disconnectSSE();
+                currentSessionId = null;
+                setChatEnabled(false);
+                
+                const container = document.getElementById('chat-messages');
+                const welcome = document.getElementById('chat-welcome');
+                if (container) container.innerHTML = '';
+                if (welcome) welcome.style.display = 'flex';
+                
+                const sessionNameEl = document.getElementById('current-session-name');
+                if (sessionNameEl) sessionNameEl.textContent = 'New AI chat';
+            }
+            
+            await loadSessions();
+        } catch (err) {
+            console.error('Failed to delete session:', err);
+        }
+    }
+
+    // Legacy function for backwards compatibility
+    async function deleteCurrentSession() {
+        if (!currentSessionId) return;
+        await deleteSession(currentSessionId);
+    }
+
+    function setChatEnabled(enabled) {
+        document.getElementById('chat-input').disabled = !enabled;
+        document.getElementById('chat-send-btn').disabled = !enabled;
+    }
+
+    // =========================================================================
+    // SSE Connection (chat tokens + diagram changes)
+    // =========================================================================
+
+    function connectSSE(sessionId) {
+        disconnectSSE();
+        const url = `/api/projects/${PROJECT_ID}/chat/sessions/${sessionId}/stream`;
+        eventSource = new EventSource(url);
+
+        eventSource.addEventListener('token', (e) => {
+            const data = JSON.parse(e.data);
+            appendStreamToken(data.text);
+        });
+
+        eventSource.addEventListener('message_done', (e) => {
+            const data = JSON.parse(e.data);
+            finalizeStreamMessage(data.content);
+        });
+
+        eventSource.addEventListener('chat_error', (e) => {
+            const data = JSON.parse(e.data);
+            finishStreaming();
+            appendMessage('error', data.detail, false);
+        });
+
+        eventSource.addEventListener('diagram_changed', (e) => {
+            const data = JSON.parse(e.data);
+            if (data.file === FILENAME) {
+                handleDiagramUpdate(data.content);
+            }
+        });
+
+        eventSource.addEventListener('diagram_added', () => {});
+        eventSource.addEventListener('diagram_removed', () => {});
+        eventSource.addEventListener('ping', () => {});
+        eventSource.onerror = () => {};
+    }
+
+    function disconnectSSE() {
+        if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+        }
+    }
+
+    // =========================================================================
+    // Live Diagram Update (zoom-preserving)
+    // =========================================================================
+
+    async function handleDiagramUpdate(content) {
+        diagramContent = content;
+
+        // Visual feedback
+        const areaEl = document.getElementById('diagram-area');
+        areaEl.classList.add('updating');
+        setTimeout(() => areaEl.classList.remove('updating'), 1000);
+
+        // Re-render mermaid - scale/panX/panY are untouched
+        await renderDiagram();
+
+        // Re-apply the existing transform (zoom & pan preserved)
+        applyTransform();
+    }
+
+    // =========================================================================
+    // Chat messaging
+    // =========================================================================
+
+    function appendMessage(role, content, scroll = true) {
+        const container = document.getElementById('chat-messages');
+        const welcome = document.getElementById('chat-welcome');
+        if (welcome) welcome.style.display = 'none';
+
+        const div = document.createElement('div');
+        div.className = `chat-msg ${role}`;
+        
+        if (role === 'assistant') {
+            div.innerHTML = `
+                <div class="msg-avatar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 3c-4.5 0-8 3.5-8 8 0 2.5 1.5 4.5 3 6l-1 4 4-1c1.5.5 3 .5 4.5.5 4.5 0 8-3.5 8-8s-3.5-8-8-8z"/>
+                    </svg>
+                </div>
+                <div class="msg-content">${marked.parse(content)}</div>
+            `;
+        } else if (role === 'user') {
+            div.innerHTML = `<div class="msg-bubble">${escapeHtml(content)}</div>`;
+        } else if (role === 'error') {
+            div.innerHTML = `
+                <div class="msg-avatar" style="background: #ef4444;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 8v4M12 16h.01"/>
+                    </svg>
+                </div>
+                <div class="msg-content">${escapeHtml(content)}</div>
+            `;
+        }
+        
+        container.appendChild(div);
+        if (scroll) container.scrollTop = container.scrollHeight;
+        return div;
+    }
+
+    function showThinking() {
+        hideThinking();
+        const container = document.getElementById('chat-messages');
+        const welcome = document.getElementById('chat-welcome');
+        if (welcome) welcome.style.display = 'none';
+        
+        const el = document.createElement('div');
+        el.className = 'chat-thinking';
+        el.id = 'thinking-indicator';
+        el.innerHTML = `
+            <div class="msg-avatar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3c-4.5 0-8 3.5-8 8 0 2.5 1.5 4.5 3 6l-1 4 4-1c1.5.5 3 .5 4.5.5 4.5 0 8-3.5 8-8s-3.5-8-8-8z"/>
+                </svg>
+            </div>
+            <div class="thinking-content">
+                <span>${chatMode === 'persistent' ? 'Agent thinking' : 'Thinking'}</span>
+                <div class="thinking-dots">
+                    <div class="thinking-dot"></div>
+                    <div class="thinking-dot"></div>
+                    <div class="thinking-dot"></div>
+                </div>
+            </div>
+        `;
+        container.appendChild(el);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function hideThinking() {
+        const el = document.getElementById('thinking-indicator');
+        if (el) el.remove();
+    }
+
+    function appendStreamToken(text) {
+        hideThinking();
+        const container = document.getElementById('chat-messages');
+        const welcome = document.getElementById('chat-welcome');
+        if (welcome) welcome.style.display = 'none';
+        
+        if (!streamingMsgEl) {
+            streamingMsgEl = document.createElement('div');
+            streamingMsgEl.className = 'chat-msg assistant';
+            streamingMsgEl.innerHTML = `
+                <div class="msg-avatar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 3c-4.5 0-8 3.5-8 8 0 2.5 1.5 4.5 3 6l-1 4 4-1c1.5.5 3 .5 4.5.5 4.5 0 8-3.5 8-8s-3.5-8-8-8z"/>
+                    </svg>
+                </div>
+                <div class="msg-content"></div>
+            `;
+            container.appendChild(streamingMsgEl);
+            streamingText = '';
+            isStreaming = true;
+        }
+        
+        streamingText += text;
+        const contentEl = streamingMsgEl.querySelector('.msg-content');
+        if (contentEl) {
+            contentEl.innerHTML = marked.parse(streamingText);
+        }
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function finalizeStreamMessage(fullContent) {
+        if (streamingMsgEl) {
+            const content = fullContent || streamingText;
+            const contentEl = streamingMsgEl.querySelector('.msg-content');
+            if (contentEl) {
+                contentEl.innerHTML = marked.parse(content);
+            }
+        }
+        finishStreaming();
+    }
+
+    function finishStreaming() {
+        hideThinking();
+        streamingMsgEl = null;
+        streamingText = '';
+        isStreaming = false;
+        setChatBusy(false);
+    }
+
+    function setChatBusy(busy) {
+        const sendBtn = document.getElementById('chat-send-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const input = document.getElementById('chat-input');
+        
+        if (sendBtn) sendBtn.style.display = busy ? 'none' : 'flex';
+        if (cancelBtn) cancelBtn.style.display = busy ? 'flex' : 'none';
+        if (input) input.disabled = busy;
+    }
+    
+    function setChatInput(text) {
+        const input = document.getElementById('chat-input');
+        if (input) {
+            input.value = text;
+            input.focus();
+        }
+    }
+
+    async function cancelChat() {
+        if (!currentSessionId) return;
+        try {
+            await fetch(`/api/projects/${PROJECT_ID}/chat/sessions/${currentSessionId}/cancel`, { method: 'POST' });
+        } catch {}
+        finishStreaming();
+    }
+
+    async function sendChat() {
+        const input = document.getElementById('chat-input');
+        const message = input.value.trim();
+        if (!message || !currentSessionId) return;
+
+        input.value = '';
+        const userMsg = appendMessage('user', message);
+        userMsg.classList.add('sent-flash');
+        showThinking();
+
+        // Build context: this diagram is always attached
+        let context = `\n--- ${FILENAME} ---\n${diagramContent}\n`;
+
+        // Add selected element focus
+        if (selectedElements.size > 0) {
+            context += `\n--- SELECTED ELEMENTS in ${FILENAME} ---\n`;
+            for (const nodeId of selectedElements) {
+                const connections = getNodeConnections(nodeId);
+                context += `Focus: ${nodeId}\n`;
+                if (connections.length > 0) {
+                    context += `Connections:\n${connections.map(c => '  ' + c).join('\n')}\n`;
+                }
+            }
+            context += `--- END SELECTED ---\n`;
+        }
+
+        setChatBusy(true);
+
+        try {
+            const resp = await fetch(`/api/projects/${PROJECT_ID}/chat/sessions/${currentSessionId}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message,
+                    context: context,
+                    provider: getSelectedProvider(),
+                    model: document.getElementById('chat-model').value || null,
+                    mode: chatMode,
+                }),
+            });
+            if (!resp.ok) {
+                const detail = await resp.json().catch(() => null);
+                finishStreaming();
+                appendMessage('error', detail?.detail || 'Failed to send message');
+            }
+        } catch (err) {
+            finishStreaming();
+            appendMessage('error', err.message);
+        }
+    }
+
+    // Enter to send + auto-resize
+    document.getElementById('chat-input')?.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (!isStreaming && currentSessionId) sendChat();
+        }
+    });
+    
+    document.getElementById('chat-input')?.addEventListener('input', function(e) {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+    
+    // Close popup when clicking outside
+    document.addEventListener('click', function(e) {
+        const popup = document.getElementById('session-popup');
+        const dropdown = document.querySelector('.chat-header-dropdown');
+        if (popup && dropdown && !popup.contains(e.target) && !dropdown.contains(e.target)) {
+            popup.classList.remove('open');
+        }
+    });
+
+    // =========================================================================
+    // Init
+    // =========================================================================
+
+    loadDiagram().then(() => {
+        requestAnimationFrame(() => fitToScreen());
+    });
+    </script>
+</body>
+</html>

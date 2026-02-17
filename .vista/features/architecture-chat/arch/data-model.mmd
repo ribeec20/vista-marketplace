@@ -1,0 +1,85 @@
+erDiagram
+    ChatSession ||--|{ ChatMessage : contains
+    ChatSession }o--|| Provider : "locked to"
+    ChatSession }o--|| Feature : "scoped to"
+    Feature ||--o{ DiagramFile : "has"
+    Feature ||--o{ SpecFile : "has"
+    Feature ||--|| ArchManifest : "has"
+    ArchManifest ||--|{ DiagramEntry : "lists"
+    ServiceInstance }o--|| ServiceType : "is type"
+
+    ChatSession {
+        string id PK "8-char hex"
+        string project_id FK
+        string feature_name FK
+        string name "auto-generated from first message"
+        string provider "claude | opencode"
+        string model "opus | sonnet | haiku | ..."
+        datetime created_at
+        datetime updated_at
+    }
+
+    ChatMessage {
+        string role "user | assistant"
+        string content "markdown text"
+        datetime timestamp
+    }
+
+    Provider {
+        string name PK "claude | opencode"
+        string backend_type "websocket | rest_sse"
+        string[] models "available model IDs"
+        boolean available "health check result"
+        string endpoint_url "ws://... or http://..."
+    }
+
+    Feature {
+        string name PK "e.g. docker-sandbox"
+        string project_id FK
+        string arch_dir "path to arch/"
+        string specs_dir "path to specs/"
+    }
+
+    DiagramFile {
+        string filename PK "e.g. system-architecture.mmd"
+        string content "mermaid source"
+        datetime last_modified
+    }
+
+    SpecFile {
+        string filename PK
+        string content "markdown"
+        datetime last_modified
+    }
+
+    ArchManifest {
+        string feature PK
+        json diagrams "array of DiagramEntry"
+    }
+
+    DiagramEntry {
+        string name "display name"
+        string file "filename.mmd"
+        string type "mermaid | drawio"
+        string diagramType "flowchart | sequence | ..."
+        string category "architecture | tdd"
+        string description
+    }
+
+    ServiceInstance {
+        string name PK "vista | companion | opencode"
+        string type "fastapi | bun | opencode"
+        int port
+        string status "running | stopped | error"
+        int pid "process ID"
+        datetime started_at
+        string health_url "health check endpoint"
+    }
+
+    ServiceType {
+        string id PK "fastapi | bun | opencode"
+        string start_command
+        string health_endpoint
+        int default_port
+        int restart_backoff_ms
+    }

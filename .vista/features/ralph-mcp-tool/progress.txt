@@ -1,0 +1,245 @@
+Phase: planning, iteration 2
+Date: 2026-02-10
+
+=== PLANNING ITERATION 2 ===
+
+## Summary
+
+Updated IMPLEMENTATION_PLAN.md with accurate implementation status based on comprehensive codebase analysis. All phases marked as NOT STARTED with detailed current state assessment.
+
+## Invalidation Findings
+
+**Previous assumptions:**
+- None - this is the first verification iteration against actual codebase
+
+**Current State Assessment:**
+1. **MCP Server (vista/mcp_server.py)**: ZERO tools registered - only has dashboard lifecycle
+2. **RalphService**: File does NOT exist - needs to be created from scratch
+3. **SummarizerService**: File does NOT exist - needs to be created from scratch
+4. **Provider Service**: PARTIAL - has base classes but missing ralph-specific functions:
+   - Missing: `get_ralph_providers()`
+   - Missing: `get_ralph_defaults()`
+   - Missing: `get_summarizer_config()`
+   - Missing: `get_summarizer_command()` method on providers
+5. **Config**: PARTIAL - has basic settings loading but missing:
+   - Missing: `get_ralph_settings()`
+   - Missing: `save_ralph_settings()`
+6. **Settings File (vista/settings.json)**: NO ralph section exists
+7. **Dashboard Routes**: NO ralph.py or settings.py routes exist
+8. **Templates**: NO ad-hoc templates exist (PROMPT_plan_adhoc.md, PROMPT_build_adhoc.md)
+
+## Codebase Analysis Completed
+
+### Files Analyzed (via subagent):
+- ✅ vista/mcp_server.py (101 lines, 0 tools)
+- ✅ vista/server/services/provider_service.py (226 lines, base providers only)
+- ✅ vista/server/services/loop_service.py (482 lines, reference patterns)
+- ✅ vista/server/config.py (96 lines, server settings only)
+- ✅ vista/portable/ralph.py (334 lines, LOOP_SCRIPT_TEMPLATE identified)
+- ✅ vista/settings.json (19 lines, NO ralph section)
+- ✅ vista/server/app.py (127 lines, existing route patterns)
+- ✅ vista/portable/templates/ (existing templates analyzed)
+
+### Key Reusable Components Identified:
+1. **LOOP_SCRIPT_TEMPLATE** from portable/ralph.py - MUST be reused exactly
+2. **Provider.get_invocation()** pattern - use for subprocess generation
+3. **loop_service.py patterns** - subprocess.Popen with proper flags
+4. **Base Provider classes** - extend with get_summarizer_command()
+5. **Settings loading** - extend existing load_settings() pattern
+
+## Implementation Plan Updated
+
+**Changes made to IMPLEMENTATION_PLAN.md:**
+- Added "Current Implementation Status" section - "Nothing implemented yet. All phases NOT STARTED."
+- Added "Current State" subsections to each phase documenting what exists vs what's missing
+- Added "Current Implementation Gap Summary" table with 10 components
+- Marked all 6 phases as NOT STARTED with all 20 tasks unchecked
+- Estimated ~1,450 lines of code across ~10 files needed
+
+### Implementation Plan Structure (20 tasks across 6 phases):
+
+**Phase 1: Settings Extension & Provider Filtering** (5 tasks)
+- Settings schema extension (ralph section)
+- Settings loading functions (get_ralph_settings, save_ralph_settings)
+- Provider service extensions (get_ralph_providers, get_ralph_defaults, get_summarizer_config)
+- Provider base class extension (get_summarizer_command method)
+- Unit tests for settings
+
+**Phase 2: Job Management Service** (4 tasks)
+- RalphService implementation (create_job, get_job_status, stop_job, list_jobs)
+- Ad-hoc prompt templates (PROMPT_plan_adhoc.md, PROMPT_build_adhoc.md)
+- Unit tests for ralph service
+- Integration tests for lifecycle
+
+**Phase 3: Summarizer Service** (3 tasks)
+- SummarizerService implementation (run_summarizer)
+- Summarizer prompt template
+- Unit tests for summarizer
+
+**Phase 4: MCP Tool Definitions** (2 tasks)
+- 5 MCP tool decorators (ralph_providers, ralph_start, ralph_status, ralph_summary, ralph_stop)
+- Integration tests for MCP tools
+
+**Phase 5: Dashboard Integration** (3 tasks)
+- API routes (GET /api/ralph/jobs, etc.)
+- HTML templates (ralph_jobs.html, ralph_job_detail.html)
+- Frontend JavaScript for polling
+
+**Phase 6: Settings UI** (3 tasks)
+- Settings API routes (GET/PUT /api/settings/ralph)
+- Settings UI template (ralph_settings.html)
+- Frontend JavaScript for cascading dropdowns
+
+## Critical Implementation Patterns Documented
+
+1. **Subprocess spawning must match ralph.py exactly:**
+   - Use same LOOP_SCRIPT_TEMPLATE from portable.ralph
+   - Use provider.get_invocation("ps1" or "sh")
+   - Only difference: subprocess.Popen (non-blocking) vs subprocess.run (blocking)
+
+2. **Live model discovery (NEVER hardcode):**
+   - Always call provider.get_models() first
+   - Settings only store filters and metadata overlays
+   - Models not in get_models() are silently ignored
+
+3. **Both-level provider enabling:**
+   - Provider must be enabled in top-level `providers` section
+   - AND in `ralph.providers` section
+
+4. **PID verification pattern:**
+   - Windows: OpenProcess with PROCESS_QUERY_INFORMATION
+   - Unix: os.kill(pid, 0)
+
+5. **Ad-hoc template adaptation:**
+   - New templates: PROMPT_plan_adhoc.md, PROMPT_build_adhoc.md
+   - Remove specs/, arch/ references
+   - task.md is the source of truth
+
+## Areas Still Needing Attention
+
+**Implementation (all phases):**
+- Phase 1: Settings extension (not started - 5 tasks)
+- Phase 2: Job management service (not started - 4 tasks)
+- Phase 3: Summarizer service (not started - 3 tasks)
+- Phase 4: MCP tool definitions (not started - 2 tasks)
+- Phase 5: Dashboard integration (not started - 3 tasks)
+- Phase 6: Settings UI (not started - 3 tasks)
+
+**Testing:**
+- No tests written yet for ralph-mcp-tool
+- Test files to create:
+  - vista/tests/test_ralph_settings.py
+  - vista/tests/test_ralph_service.py
+  - vista/tests/test_summarizer_service.py
+  - vista/tests/integration/test_ralph_lifecycle.py
+  - vista/tests/integration/test_mcp_tools.py
+
+**Architecture Diagrams:**
+- No diagrams exist yet (arch/_arch.json shows empty array)
+- Should create during implementation:
+  - MCP tool flow diagram
+  - Job lifecycle state machine
+  - Settings filtering pipeline
+  - Subprocess architecture
+
+## Next Steps
+
+**Ready for Implementation:**
+All specifications are clear, existing patterns are identified, and implementation plan is comprehensive. The feature is ready to begin implementation.
+
+**Recommended Order:**
+1. Phase 1 (Settings) - Foundation, ~2-3 hours
+2. Phase 2 (Job Management) - Core service, ~4-5 hours
+3. Phase 3 (Summarizer) - Can parallel with Phase 5, ~2-3 hours
+4. Phase 4 (MCP Tools) - Wiring, ~2-3 hours
+5. Phase 5 (Dashboard) - UI, ~3-4 hours
+6. Phase 6 (Settings UI) - Nice-to-have, ~3-4 hours
+
+**Total Estimate:** 16-22 hours for complete implementation
+
+---
+
+Previous Iteration (Iteration 1):
+- Comprehensive planning analysis completed
+- All 6 specs studied (100% coverage)
+- Existing codebase analyzed
+- Initial IMPLEMENTATION_PLAN.md created (19,000+ words)
+- AGENTS.md operational guide created
+
+End of Planning Iteration 2
+
+---
+Time: 2026-02-10 16:36:31
+Iteration: 1
+
+CODE CHANGES MADE:
+- vista/settings.json: added ralph settings defaults, summarizer config, provider filters/metadata
+- vista/server/config.py: added ralph settings helpers and save_ralph_settings
+- vista/server/services/provider_service.py: added summarizer commands and ralph provider filtering
+- vista/tests/test_config.py: added ralph settings unit tests
+- vista/tests/test_models.py: added ralph provider filtering unit tests
+
+Tests: pass
+Commit: pending
+---
+
+---
+Time: 2026-02-10 16:42:00
+Iteration: 2
+
+CODE CHANGES MADE:
+- vista/server/services/ralph_service.py: added RalphService job lifecycle, subprocess spawn, PID checks, status updates
+- vista/tests/test_ralph_service.py: added unit tests covering job creation, status, stop, and listing
+- vista/portable/templates/PROMPT_plan_adhoc.md: added ad-hoc planning template based on task.md
+- vista/portable/templates/PROMPT_build_adhoc.md: added ad-hoc build template based on task.md
+- .vista/features/ralph-mcp-tool/IMPLEMENTATION_PLAN.md: marked Phase 2 tasks and templates as in progress/completed
+
+Tests: pass (pytest vista/tests/test_ralph_service.py)
+Commit: pending
+---
+---
+Time: 2026-02-11 01:51:04 UTC
+Iteration: Build
+
+CODE CHANGES MADE:
+- vista/server/services/ralph_service.py: Already existed with complete job management
+- vista/server/services/summarizer_service.py: Created with run_summarizer method and prompt builder
+- vista/portable/templates/PROMPT_plan_adhoc.md: Already existed
+- vista/portable/templates/PROMPT_build_adhoc.md: Already existed
+- vista/tests/test_summarizer_service.py: Created comprehensive unit tests (12 tests)
+- vista/mcp_server.py: Added 5 MCP tool decorators (ralph_providers, ralph_start, ralph_status, ralph_summary, ralph_stop)
+- .vista/features/ralph-mcp-tool/IMPLEMENTATION_PLAN.md: Updated status for Phases 2-4 to COMPLETED
+
+Tests: ✅ ALL PASS (19 tests: 7 ralph_service + 12 summarizer_service)
+Commit: ebe020a
+Tag: 0.0.7
+---
+---
+Time: 2026-02-10 02:30:00 UTC
+Iteration: Build
+
+CODE CHANGES MADE:
+- vista/tests/integration/__init__.py: Created integration tests package
+- vista/tests/integration/test_mcp_tools.py: Added 19 integration tests for all 5 MCP tools
+- vista/tests/integration/test_ralph_lifecycle.py: Added 12 integration tests for ralph job lifecycle
+- vista/server/services/ralph_service.py: Fixed Windows PID detection using GetExitCodeProcess
+- .vista/features/ralph-mcp-tool/IMPLEMENTATION_PLAN.md: Updated Phase 2 and Phase 4 to mark integration tests as completed
+
+Tests: ✅ ALL PASS (38 tests total: 7 unit ralph_service + 12 unit summarizer + 19 integration MCP tools + 12 integration lifecycle, 1 skipped Unix-only test)
+Commit: 4f38475
+Tag: 0.0.8
+---
+
+---
+Time: 2026-02-10 16:58:00 UTC
+Iteration: 3
+
+CODE CHANGES MADE:
+- vista/tool_groups/ralph_tools.py: validate model availability, align response shapes, add working_dir and elapsed_time
+- vista/tests/integration/test_mcp_tools.py: update MCP tool tests for working_dir and model filtering
+- .vista/features/ralph-mcp-tool/IMPLEMENTATION_PLAN.md: update Phase 4 notes and status
+
+Tests: pass (pytest vista/tests/integration/test_mcp_tools.py)
+Commit: pending
+---
+

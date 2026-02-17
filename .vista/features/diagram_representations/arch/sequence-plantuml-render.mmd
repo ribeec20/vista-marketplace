@@ -1,0 +1,26 @@
+sequenceDiagram
+    participant Browser as Browser Client
+    participant Encoder as plantuml-encoder
+    participant Server as PlantUML Server
+    participant Settings as Vista Settings
+
+    Browser->>Settings: Read plantuml_server_url
+    Note over Settings: Default: https://www.plantuml.com/plantuml
+
+    Browser->>Browser: Load .puml raw source from arch API
+    Browser->>Encoder: Encode diagram source to URL-safe string
+    Encoder-->>Browser: Encoded string
+
+    Browser->>Browser: Construct URL: {server}/svg/{encoded}
+    Browser->>Server: GET {server}/svg/{encoded}
+
+    alt Server unreachable / timeout
+        Server-->>Browser: Network error
+        Note over Browser: Show error message +<br/>raw .puml source as fallback
+    else Invalid PlantUML syntax
+        Server-->>Browser: Error SVG with syntax message
+        Note over Browser: Display error SVG inline
+    else Success
+        Server-->>Browser: SVG content
+        Note over Browser: Render SVG inline in diagram card
+    end

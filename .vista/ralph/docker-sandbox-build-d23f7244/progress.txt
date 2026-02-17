@@ -1,0 +1,83 @@
+## ITERATION 1 — Docker Sandbox Build
+
+### Phase 1: Settings + Data Models — COMPLETE
+- Created `server/models/sandbox.py` with MountSpec, CredentialMount, ContainerInfo dataclasses
+- Created `server/services/sandbox/sandbox_errors.py` with exception hierarchy
+- Created `server/services/sandbox/docker_client.py` with lazy Docker SDK wrapper
+- Extended `server/config.py` with _SANDBOX_DEFAULTS, get/save/validate sandbox settings
+- Tests: 32 passing (test_sandbox_config.py: 22, test_docker_client.py: 10)
+
+### Phase 2: Container Manager — COMPLETE
+- Created `server/services/sandbox/container_manager.py` with ContainerManager class
+- Full lifecycle: check_docker, ensure_image, create_container, start, stop, exec, cleanup
+- Container naming: `vista-ralph-{job_id[:8]}`, labels for management
+- Tests: 22 passing (test_container_manager.py)
+
+### Phase 3: Credential Mounter — COMPLETE
+- Created `server/services/sandbox/credential_mounter.py` with CredentialMounter class
+- 5 credential types: claude_auth, git_ssh, git_config, gh_cli, opencode
+- Cross-platform path resolution: Windows (APPDATA), macOS, Linux
+- All mounts are read-only; enable/disable per credential
+- Tests: 23 passing (test_credential_mounter.py)
+
+### Phase 4: Bash Loop Generator — COMPLETE
+- Created `server/services/sandbox/bash_loop_generator.py` with BashLoopGenerator class
+- BASH_LOOP_TEMPLATE with Claude and OpenCode invocation blocks
+- Generates container-native bash scripts with /workspace paths
+- Tests: 24 passing (test_bash_loop_generator.py)
+
+### Phase 5: Docker Integration — COMPLETE
+- Created `docker/Dockerfile` (debian:bookworm-slim, Node.js, Claude CLI, git, python3)
+- Created `docker/.dockerignore`
+- Created `tests/integration/test_docker_sandbox.py` (5 integration tests, Docker required)
+- Tests: 5 passing (test_docker_sandbox.py)
+
+### Phase 6: Ralph Integration — COMPLETE
+- Extended `ralph_service.py` with `sandbox` parameter on `create_job()`
+  - sandbox=True: Docker path via ContainerManager + CredentialMounter + BashLoopGenerator
+  - sandbox=False: Existing native subprocess path (zero changes)
+  - DS-NF6: No ContainerManager instantiation when sandbox=False
+- Extended `stop_job()` with sandbox branch (DS-F27: docker stop vs OS signal)
+- Added `sandbox` and `container_id` fields to all job.json (DS-F26)
+- Created `server/routes/sandbox.py` with GET /api/ralph/sandbox/status and POST /api/ralph/sandbox/build
+- Extended `ralph_start` MCP tool with `sandbox` parameter (DS-F29)
+- Registered sandbox routes in `server/app.py`
+- Tests: 17 passing (test_sandbox_integration.py)
+
+### Test Summary
+- Phase 1: 32 tests passing
+- Phase 2: 22 tests passing
+- Phase 3: 23 tests passing
+- Phase 4: 24 tests passing
+- Phase 5: 5 integration tests passing
+- Phase 6: 17 tests passing
+- Existing tests: 191 tests passing (unchanged)
+- **Total: 314 tests passing, 0 failures**
+
+### Files Created
+- `server/models/__init__.py`
+- `server/models/sandbox.py`
+- `server/services/sandbox/__init__.py`
+- `server/services/sandbox/sandbox_errors.py`
+- `server/services/sandbox/docker_client.py`
+- `server/services/sandbox/container_manager.py`
+- `server/services/sandbox/credential_mounter.py`
+- `server/services/sandbox/bash_loop_generator.py`
+- `server/routes/sandbox.py`
+- `docker/Dockerfile`
+- `docker/.dockerignore`
+- `tests/test_sandbox_config.py`
+- `tests/test_docker_client.py`
+- `tests/test_container_manager.py`
+- `tests/test_credential_mounter.py`
+- `tests/test_bash_loop_generator.py`
+- `tests/test_sandbox_integration.py`
+- `tests/integration/test_docker_sandbox.py`
+
+### Files Modified
+- `server/config.py` — Added sandbox settings (defaults, getters, validators)
+- `server/services/ralph_service.py` — Added sandbox branch in create_job() and stop_job()
+- `server/app.py` — Registered sandbox routes
+- `mcp_server.py` — Added sandbox param to ralph_start tool
+
+ALL PHASES COMPLETE

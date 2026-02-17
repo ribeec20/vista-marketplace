@@ -1,0 +1,26 @@
+@startuml
+title Authentication Flow
+
+actor User
+participant "Browser" as B
+participant "API Gateway" as GW
+participant "Auth Service" as Auth
+database "User DB" as DB
+
+User -> B: Enter credentials
+B -> GW: POST /api/login
+GW -> Auth: validateCredentials()
+Auth -> DB: findByEmail()
+DB --> Auth: user record
+alt valid credentials
+    Auth -> Auth: generateJWT()
+    Auth --> GW: 200 + token
+    GW --> B: Set-Cookie: session
+    B --> User: Redirect to dashboard
+else invalid
+    Auth --> GW: 401 Unauthorized
+    GW --> B: Error message
+    B --> User: Show error
+end
+
+@enduml

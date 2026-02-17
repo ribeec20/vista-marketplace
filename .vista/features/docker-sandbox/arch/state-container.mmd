@@ -1,0 +1,33 @@
+stateDiagram-v2
+    [*] --> ImageCheck: sandbox job requested
+
+    ImageCheck --> Building: image not found
+    ImageCheck --> Creating: image exists
+    Building --> Creating: build success
+    Building --> Failed: build error
+
+    Creating --> Starting: container created
+    Creating --> Failed: create error
+
+    Starting --> Running: container started
+    Starting --> Failed: start error
+
+    Running --> Stopping: user stop / job complete
+    Running --> Expired: TTL timeout
+    Running --> Failed: container crash
+
+    Stopping --> Removed: auto-remove
+    Expired --> Removed: force remove
+    Failed --> Removed: cleanup
+
+    Removed --> [*]
+
+    note right of Running
+        output.log written to
+        shared volume mount
+    end note
+
+    note right of Failed
+        Preserve output.log
+        for debugging
+    end note

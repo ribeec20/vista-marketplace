@@ -1,0 +1,37 @@
+flowchart TB
+    subgraph Client["Browser Client"]
+        UI[Web Dashboard]
+        WS[WebSocket Client]
+        R[Renderers]
+    end
+
+    subgraph Server["FastAPI Server"]
+        API[REST API]
+        ARCH[Architecture Service]
+        PROG[Progress Service]
+        DIAG[Diagram Watcher]
+    end
+
+    subgraph Storage["File System"]
+        FEAT[".vista/features/"]
+        MANIFEST["_arch.json"]
+        FILES["Diagram Files"]
+    end
+
+    subgraph External["External Services"]
+        PUML[PlantUML Server]
+        CDN[CDN Libraries]
+    end
+
+    UI --> WS
+    UI --> R
+    WS --> API
+    R --> CDN
+    R --> PUML
+    API --> ARCH
+    API --> PROG
+    ARCH --> FEAT
+    PROG --> FEAT
+    DIAG --> FEAT
+    FEAT --> MANIFEST
+    FEAT --> FILES

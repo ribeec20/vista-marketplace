@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Ralph Loop Dashboard{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/style.css">
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+    <!-- Logo Header -->
+    <header class="bg-gray-900 border-b border-gray-800 py-3">
+        <div class="max-w-7xl mx-auto px-6 text-center">
+            <a href="/" class="text-2xl font-bold text-green-400 hover:text-green-300 transition-colors">
+                Vista Runner
+            </a>
+        </div>
+    </header>
+
+    <!-- Sticky App Bar -->
+    <nav class="sticky top-0 bg-gray-800/95 backdrop-blur border-b border-gray-700 px-6 py-3 z-40">
+        <div class="flex items-center justify-between max-w-7xl mx-auto gap-4">
+            <div class="flex items-center gap-6 min-w-0">
+                <!-- Menu Button -->
+                <button id="drawer-toggle"
+                        type="button"
+                        class="flex items-center justify-center w-9 h-9 rounded-md hover:bg-gray-700 text-gray-300 hover:text-white transition-colors"
+                        onclick="toggleProjectDrawer()"
+                        aria-label="Open projects menu">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <div class="flex items-center gap-5 text-sm">
+                    <a href="/ralph/jobs" class="text-gray-300 hover:text-white transition-colors">Ralph Jobs</a>
+                    <a href="/ralph/settings" class="text-gray-400 hover:text-gray-200 transition-colors">Settings</a>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 relative">
+                <button id="running-loops-toggle"
+                        type="button"
+                        class="hidden items-center gap-2 px-3 py-1.5 rounded-md border border-green-700/70 bg-green-900/30 hover:bg-green-900/50 text-sm text-green-300 transition-colors"
+                        onclick="toggleRunningLoopsPopover()">
+                    <span class="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+                    <span id="running-loops-label">0 loops</span>
+                </button>
+                <div id="running-loops-popover"
+                     class="hidden absolute right-0 top-11 w-[30rem] max-w-[85vw] bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-3">
+                    <div class="flex items-center justify-between mb-2 px-1">
+                        <h3 class="text-sm font-semibold text-gray-200">Running Ralph Loops</h3>
+                        <button type="button" class="text-xs text-gray-400 hover:text-gray-200" onclick="refreshRunningLoops(true)">Refresh</button>
+                    </div>
+                    <div id="running-loops-list" class="space-y-2 max-h-[26rem] overflow-y-auto">
+                        <div class="text-sm text-gray-500 px-1 py-2">No active loops.</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-sm text-gray-400">Server Running</span>
+                    <span class="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Side Drawer -->
+    <div id="project-drawer-overlay"
+         class="fixed inset-0 bg-black/50 z-40 hidden transition-opacity duration-200"
+         onclick="toggleProjectDrawer()"></div>
+    <aside id="project-drawer"
+           class="fixed top-0 left-0 bottom-0 w-72 bg-gray-800 border-r border-gray-700 z-50 transform -translate-x-full transition-transform duration-200 ease-in-out overflow-y-auto">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+            <h2 class="text-sm font-semibold text-gray-200">Projects</h2>
+            <button onclick="toggleProjectDrawer()"
+                    class="p-1.5 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                    aria-label="Close drawer">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div id="drawer-project-list" class="py-2">
+            <div class="px-4 py-3 text-sm text-gray-500">Loading projects...</div>
+        </div>
+    </aside>
+
+    <main class="max-w-7xl mx-auto px-6 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="/static/app.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

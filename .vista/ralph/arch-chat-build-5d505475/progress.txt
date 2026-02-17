@@ -1,0 +1,75 @@
+---
+Iteration: 1
+Time: 2026-02-12
+
+WHAT WAS DONE:
+
+Phase 1 - Service Lifecycle Manager:
+- server/services/service_lifecycle.py: NEW - Full lifecycle manager with state machine (Stopped->Starting->Running->Stopping->Error->Restarting), periodic health checks, exponential backoff restarts, Windows process tree kill, bun binary discovery, companion_config() and opencode_config() factory functions
+- server/routes/service_status.py: NEW - GET /api/services/health endpoint returning all managed service statuses
+
+Phase 2 - Provider Router (Claude WS + OpenCode SSE):
+- server/services/claude_ws_client.py: NEW - WebSocket client for Companion's browser-side WS bridge. Handles session create/connect/send_message/disconnect/delete_session. Protocol-correct: user_message, stream_event, permission_response with behavior:"allow", result with data wrapper
+- server/services/opencode_client.py: NEW - HTTP+SSE client for OpenCode REST API. Handles session CRUD, prompt_async + SSE event streaming, Basic Auth from env var
+- server/services/provider_router.py: NEW - Routes messages to correct backend based on provider type. Manages session mapping (Vista session_id -> backend session_id). Singleton instance
+
+Phase 4 - Context Assembler:
+- server/services/context_assembler.py: NEW - Extracted prompt assembly from ChatService into clean, testable module. build_system_prompt(), build_full_prompt(), get_diagram_context() static methods
+
+Phase 5 - Model Discovery:
+- server/services/provider_service.py: MODIFIED - OpenCodeProvider.get_models() now tries running OpenCode server HTTP API first (GET /config/providers), falls back to CLI. Extracted _get_models_from_cli() helper
+
+Phase 6 - Frontend:
+- server/views/architecture.html: MODIFIED - Added service status indicator bar with green/red dots for Companion and OpenCode. Added pollServiceHealth() JS function polling /api/services/health every 10s. Added updateProviderAvailability() to show "(offline)" on unavailable providers
+
+Phase 8 - Integration:
+- server/app.py: MODIFIED - Import lifecycle manager + provider_router. Lifespan now registers companion/opencode configs, calls start_all() on startup, cleanup_all()+stop_all() on shutdown. Added service_status router
+- server/config.py: MODIFIED - Added get_chat_settings() with companion_port/opencode_port defaults
+- server/models/chat_session.py: MODIFIED - Added backend_session_id field to ChatSession, updated to_dict(), to_summary_dict(), from_dict()
+- server/routes/chat_sessions.py: REWRITTEN - Uses ContextAssembler for prompt building. Three streaming paths: (1) ProviderRouter for protocol-native when backend available, (2) keepalive_manager for persistent/tmux mode, (3) CLI fallback via ChatService. Backend session creation on first message. Cleanup backend on session delete
+- .claude-plugin/plugin.json: Bumped version to 1.4.0
+
+Tests:
+- tests/test_context_assembler.py: NEW - 11 tests for prompt assembly, diagram context reading, system prompt
+- tests/test_service_lifecycle.py: NEW - 12 tests for state machine, config, registration, prerequisite checking, port finding
+- tests/test_provider_router.py: NEW - 5 tests for initial state, cleanup, unknown provider handling
+- Total: 342 unit tests passing (28 new + 314 existing), 0 failures
+
+WHAT WAS NOT DONE:
+
+- Phase 3 (diagram_watcher.py rewrite to watchdog): DEFERRED - The existing polling watcher works correctly. Watchdog upgrade is an optimization, not a functional requirement. Can be done in a follow-up iteration
+- Phase 7 (Companion fork verification): DONE IMPLICITLY - No changes needed to companion/ as confirmed by plan. Bun discovery logic is in service_lifecycle.py
+- keepalive_manager.py removal: DEFERRED - Kept for backward compatibility with persistent/tmux mode. The new ProviderRouter is the primary path; keepalive_manager is a secondary fallback
+- chat.py route removal: DEFERRED - Kept for backward compatibility with any clients using the legacy blocking endpoint
+
+Tests: 342 passing, 0 failing (unit tests only; integration tests have pre-existing failures unrelated to this change)
+---
+
+---
+Iteration: 2
+Time: 2026-02-12
+
+WHAT WAS DONE:
+
+Phase 3 - Diagram Watcher Rewrite (polling -> watchdog):
+- server/services/diagram_watcher.py: REWRITTEN - Replaced 2s polling loop with watchdog Observer pattern using native Windows ReadDirectoryChangesW. Added _DiagramEventHandler (FileSystemEventHandler subclass) with 100ms debounce via threading.Timer. Thread-safe cross-thread async scheduling via loop.call_soon_threadsafe(). Added _detect_diagram_type() helper for Mermaid diagram classification. Added _update_manifest_sync() for auto-regenerating _arch.json on file add/remove. Same public API preserved: subscribe(), unsubscribe(), stop()
+- tests/test_diagram_watcher.py: NEW - 26 tests covering diagram type detection (8), file reading (2), watcher subscribe/unsubscribe/observer lifecycle (7), manifest auto-update (4), async broadcast (3), stop_all (1)
+
+Phase 8 - mcp_server.py Cleanup:
+- mcp_server.py: MODIFIED - Removed _start_opencode_serve() function that spawned a duplicate opencode process. Replaced with _get_lifecycle_opencode_url() that queries the service_lifecycle singleton for the already-running opencode URL. Updated lifespan to remove opencode_process variable and cleanup code. No more duplicate process spawning
+
+Legacy Code Removal:
+- server/services/keepalive_manager.py: DELETED (git rm) - tmux-based persistent chat manager fully replaced by ProviderRouter WebSocket/SSE
+- server/routes/chat.py: DELETED (git rm) - Legacy blocking POST /api/projects/{id}/chat endpoint superseded by streaming sessions
+- server/routes/chat_sessions.py: REWRITTEN - Removed all keepalive_manager imports and usage. Removed persistent mode code path entirely. Removed mode field from CreateSessionRequest and SendMessageRequest. Removed _stream_response_keepalive() function. Simplified delete_session, cancel_session_chat, and stream_session endpoints
+- server/app.py: MODIFIED - Removed keepalive_manager import and shutdown call. Removed chat router import and inclusion. Removed chat_service import. Bumped version to 1.4.1
+- tests/test_architecture.py: MODIFIED - Removed TestChatAPI class (7 tests for deleted chat.py endpoint)
+- .claude-plugin/plugin.json: Bumped version to 1.4.1
+
+WHAT WAS NOT DONE:
+
+- All deferred items from Iteration 1 are now DONE (Phase 3, mcp_server.py cleanup, keepalive/chat removal)
+- No remaining deferred items
+
+Tests: 362 unit tests passing, 0 failures, 3 warnings (pre-existing coroutine warnings)
+---

@@ -1,0 +1,96 @@
+flowchart TD
+    subgraph Browser["Browser (Vista Frontend)"]
+        UI[Architecture Page<br/>Jinja2 + Vanilla JS]
+        ChatPanel[Chat Panel<br/>Provider/Model Selection<br/>Context Assembly Display]
+        DiagramGrid[Diagram Grid<br/>Mermaid Renderer<br/>Pan/Zoom/Attach]
+        StatusBar[Service Status Bar<br/>3-Service Health Display]
+    end
+
+    subgraph VistaServer["Vista FastAPI Server (Hub)"]
+        ChatRoutes[Chat Session Routes<br/>/api/chat/sessions/*]
+        ArchRoutes[Architecture Routes<br/>/api/features/*/arch/*]
+        StatusRoutes[Service Status Routes<br/>/api/services/health]
+        SSE[SSE Endpoint<br/>Stream + Diagram Events]
+
+        ContextAssembler[Context Assembler<br/>Diagrams + Nodes + History]
+        ProviderRouter[Provider Router<br/>Claude vs OpenCode dispatch]
+        SessionService[Session Service<br/>Persistence + History]
+        DiagramWatcher[Diagram Watcher<br/>watchdog filesystem events]
+        ManifestUpdater[Manifest Auto-Updater<br/>_arch.json sync]
+        LifecycleManager[Service Lifecycle Manager<br/>Start/Stop/Health/Restart]
+    end
+
+    subgraph CompanionServer["Companion Backend (Bun/Hono)"]
+        WSBridge[WebSocket Bridge<br/>NDJSON Relay]
+        CLILauncher[CLI Launcher<br/>Process Management]
+    end
+
+    subgraph OpenCodeServer["OpenCode Server"]
+        OCAPI[REST API<br/>POST /session/:id/message]
+        OCSSE[SSE Stream<br/>GET /event]
+        OCSessions[Session Manager<br/>SQLite persistence]
+    end
+
+    subgraph CLIProcesses["CLI Processes"]
+        ClaudeCLI[Claude Code CLI<br/>--sdk-url ws://...]
+        OCEngine[OpenCode Engine<br/>AI model execution]
+    end
+
+    subgraph FileSystem["File System"]
+        ArchDir[".vista/features/*/arch/<br/>.mmd files + _arch.json"]
+        SpecsDir[".vista/features/*/specs/<br/>Specification documents"]
+        SessionData["server/data/sessions/<br/>Chat session JSON files"]
+    end
+
+    %% Browser to Vista
+    ChatPanel -->|"POST /messages<br/>+ context payload"| ChatRoutes
+    ChatPanel -->|"SSE subscribe"| SSE
+    DiagramGrid -->|"GET /arch/*"| ArchRoutes
+    StatusBar -->|"GET /health"| StatusRoutes
+
+    %% Vista internal flow
+    ChatRoutes --> ContextAssembler
+    ContextAssembler --> ProviderRouter
+    ChatRoutes --> SessionService
+    SessionService --> SessionData
+
+    %% Provider routing
+    ProviderRouter -->|"Claude: WebSocket<br/>NDJSON messages"| WSBridge
+    ProviderRouter -->|"OpenCode: HTTP POST<br/>+ SSE subscribe"| OCAPI
+
+    %% Companion to Claude
+    WSBridge <-->|"WebSocket<br/>NDJSON protocol"| ClaudeCLI
+    CLILauncher -->|"spawn with --sdk-url"| ClaudeCLI
+
+    %% OpenCode
+    OCAPI --> OCEngine
+    OCSSE -->|"message.part.updated"| ProviderRouter
+
+    %% File watching
+    DiagramWatcher -->|"watchdog events"| ManifestUpdater
+    DiagramWatcher -->|"change events"| SSE
+    ManifestUpdater --> ArchDir
+    DiagramWatcher -.->|"monitors"| ArchDir
+
+    %% AI file access
+    ClaudeCLI -.->|"reads/writes"| ArchDir
+    ClaudeCLI -.->|"reads/writes"| SpecsDir
+    OCEngine -.->|"reads/writes"| ArchDir
+    OCEngine -.->|"reads/writes"| SpecsDir
+
+    %% Lifecycle
+    LifecycleManager -->|"manages"| CompanionServer
+    LifecycleManager -->|"manages"| OpenCodeServer
+
+    %% Styling
+    classDef hub fill:#1e3a5f,stroke:#3b82f6,color:#e2e8f0
+    classDef companion fill:#2d1f4e,stroke:#8b5cf6,color:#e2e8f0
+    classDef opencode fill:#1a3a2a,stroke:#22c55e,color:#e2e8f0
+    classDef browser fill:#1f2937,stroke:#6b7280,color:#e2e8f0
+    classDef fs fill:#3b2a1a,stroke:#f59e0b,color:#e2e8f0
+
+    class ChatRoutes,ArchRoutes,StatusRoutes,SSE,ContextAssembler,ProviderRouter,SessionService,DiagramWatcher,ManifestUpdater,LifecycleManager hub
+    class WSBridge,CLILauncher companion
+    class OCAPI,OCSSE,OCSessions opencode
+    class UI,ChatPanel,DiagramGrid,StatusBar browser
+    class ArchDir,SpecsDir,SessionData fs

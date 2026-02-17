@@ -1,0 +1,93 @@
+{
+  "feature": "docker-sandbox",
+  "diagrams": [
+    {
+      "name": "System Architecture",
+      "file": "system-architecture.mmd",
+      "type": "mermaid",
+      "diagramType": "flowchart",
+      "category": "architecture",
+      "description": "High-level system components showing host services, Docker integration, and container internals"
+    },
+    {
+      "name": "User Flow",
+      "file": "user-flow.mmd",
+      "type": "mermaid",
+      "diagramType": "flowchart",
+      "category": "architecture",
+      "description": "Decision flow for starting a job: native vs sandboxed path including Docker checks and image build"
+    },
+    {
+      "name": "Sandboxed Job Sequence",
+      "file": "sequence-sandboxed-job.mmd",
+      "type": "mermaid",
+      "diagramType": "sequence",
+      "category": "architecture",
+      "description": "Full lifecycle of a sandboxed Ralph job from creation through execution to cleanup"
+    },
+    {
+      "name": "Container State Machine",
+      "file": "state-container.mmd",
+      "type": "mermaid",
+      "diagramType": "state",
+      "category": "architecture",
+      "description": "State transitions of a Docker container through its lifecycle including error and TTL paths"
+    },
+    {
+      "name": "Data Model",
+      "file": "data-model.mmd",
+      "type": "mermaid",
+      "diagramType": "er",
+      "category": "architecture",
+      "description": "Entity relationships between jobs, containers, mounts, and sandbox configuration"
+    },
+    {
+      "name": "TDD: ContainerManager States",
+      "file": "tdd-container-manager-states.mmd",
+      "type": "mermaid",
+      "diagramType": "state",
+      "category": "tdd",
+      "description": "Container lifecycle state machine with every transition labeled by triggering method — invalid transitions must be rejected"
+    },
+    {
+      "name": "TDD: ContainerManager Logic",
+      "file": "tdd-container-manager-logic.mmd",
+      "type": "mermaid",
+      "diagramType": "logic-flow",
+      "category": "tdd",
+      "description": "Logic flow for create_and_start() showing all error branches with specific error types"
+    },
+    {
+      "name": "TDD: CredentialMounter Logic",
+      "file": "tdd-credential-mounter-logic.mmd",
+      "type": "mermaid",
+      "diagramType": "logic-flow",
+      "category": "tdd",
+      "description": "Logic flow for get_mounts() iterating credentials, resolving paths, and handling missing paths gracefully"
+    },
+    {
+      "name": "TDD: CredentialMounter Decision Tree",
+      "file": "tdd-credential-mounter-decision.mmd",
+      "type": "mermaid",
+      "diagramType": "decision-tree",
+      "category": "tdd",
+      "description": "OS-specific path resolution for each credential type — each leaf is a concrete host path + container target"
+    },
+    {
+      "name": "TDD: SandboxJobCreator Logic",
+      "file": "tdd-sandbox-job-creator-logic.mmd",
+      "type": "mermaid",
+      "diagramType": "logic-flow",
+      "category": "tdd",
+      "description": "Full sandbox branch of create_job() from Docker check through container start to job.json persistence"
+    },
+    {
+      "name": "TDD: BashLoopGenerator Logic",
+      "file": "tdd-bash-loop-logic.mmd",
+      "type": "mermaid",
+      "diagramType": "logic-flow",
+      "category": "tdd",
+      "description": "Logic flow for generating bash loop script with provider-specific invocation blocks and template validation"
+    }
+  ]
+}

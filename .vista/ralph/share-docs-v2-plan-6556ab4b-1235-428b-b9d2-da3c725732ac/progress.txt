@@ -1,0 +1,15 @@
+---
+Iteration: 1 (plan)
+Time: 2026-02-15T12:00:00
+
+Plan written to: C:/Users/Grove/OneDrive/Documents/PYTHON/claude_plugins/vista-expanded-visualization/.vista/ralph/share-docs-v2-plan-6556ab4b-1235-428b-b9d2-da3c725732ac/IMPLEMENTATION_PLAN.md
+Summary: Five-phase V2 plan covering progress/planning artifact export, Ralph job artifact export, offline-first dependency inlining, theme toggle + TOC, and export history tracking. Prioritized by value (Phases 1-2 HIGH, 3-4 MEDIUM, 5 LOW) with detailed file changes, data models, API extensions, and acceptance criteria for each phase.
+---
+
+---
+Iteration: 2 (plan)
+Time: 2026-02-15T13:30:00
+
+Plan written to: C:/Users/Grove/OneDrive/Documents/PYTHON/claude_plugins/vista-expanded-visualization/.vista/ralph/share-docs-v2-plan-6556ab4b-1235-428b-b9d2-da3c725732ac/IMPLEMENTATION_PLAN.md
+Summary: Refined plan with codebase-verified corrections. Key fixes: (1) documented that read_progress() returns dict not str, must extract .content key; (2) inventoried all Tailwind classes used in export.html and chose hand-written CSS approach over Tailwind CLI for offline mode; (3) verified Ralph job directory naming pattern (slug vs slug-uuid); (4) added sensitive file blocking to Ralph artifact reader; (5) catalogued all hardcoded color values in export.html for CSS variable migration; (6) added _setup_ralph_job() test helper for Phase 2 tests.
+---

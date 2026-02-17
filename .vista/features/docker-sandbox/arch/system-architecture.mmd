@@ -1,0 +1,35 @@
+flowchart TD
+    subgraph Host["Host OS (Windows/macOS/Linux)"]
+        MCP["Vista MCP Server<br/>(mcp_server.py)"]
+        API["FastAPI Dashboard<br/>(app.py)"]
+        RS["RalphService<br/>(ralph_service.py)"]
+        CM["ContainerManager<br/>(container_manager.py)"]
+        CRED["CredentialMounter<br/>(credential_mounter.py)"]
+        DS["Docker SDK<br/>(docker python client)"]
+        DD["Docker Daemon<br/>(Docker Desktop / Engine)"]
+        FS["Host Filesystem"]
+
+        MCP --> RS
+        API --> RS
+        RS -->|sandbox=true| CM
+        RS -->|sandbox=false| FS
+        CM --> CRED
+        CM --> DS
+        DS --> DD
+    end
+
+    subgraph Container["Ephemeral Docker Container<br/>(claudebox-based)"]
+        LOOP["Bash Loop Script<br/>(loop.sh)"]
+        AGENT["Agent CLI<br/>(claude / opencode)"]
+        WS["/workspace<br/>(project mount RW)<br/>includes .vista/ralph/job/"]
+        CREDS["/creds<br/>(~/.claude, ~/.ssh, etc. RO)"]
+
+        LOOP --> AGENT
+        AGENT --> WS
+        AGENT --> CREDS
+    end
+
+    DD -->|"docker create + start"| Container
+    FS -->|"volume mount RW"| WS
+    FS -->|"bind mount RO"| CREDS
+    WS -->|"output.log visible<br/>on host via mount"| API

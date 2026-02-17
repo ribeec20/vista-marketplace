@@ -1,0 +1,45 @@
+{
+  "feature": "spec-management",
+  "diagrams": [
+    {
+      "name": "System Architecture",
+      "file": "system-architecture.mmd",
+      "type": "mermaid",
+      "diagramType": "flowchart",
+      "category": "architecture",
+      "description": "High-level view of skills, sub-agents, artifacts, templates, and git integration"
+    },
+    {
+      "name": "User Flow",
+      "file": "user-flow.mmd",
+      "type": "mermaid",
+      "diagramType": "flowchart",
+      "category": "architecture",
+      "description": "Complete decision flowchart for the spec-update skill from trigger to completion"
+    },
+    {
+      "name": "Spec Update Sequence",
+      "file": "sequence-spec-update.mmd",
+      "type": "mermaid",
+      "diagramType": "sequence",
+      "category": "architecture",
+      "description": "Interaction sequence for updating an existing spec via /vista:spec-update"
+    },
+    {
+      "name": "Initial Specs Sequence",
+      "file": "sequence-initial-specs.mmd",
+      "type": "mermaid",
+      "diagramType": "sequence",
+      "category": "architecture",
+      "description": "Interaction sequence for modified /vista:specs generating IDs and changelogs"
+    },
+    {
+      "name": "Data Model",
+      "file": "data-model.mmd",
+      "type": "mermaid",
+      "diagramType": "er",
+      "category": "architecture",
+      "description": "Entity relationships between features, specs, requirements, changelog entries, code references, and git commits"
+    }
+  ]
+}

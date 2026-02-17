@@ -1,0 +1,80 @@
+flowchart TB
+    subgraph Client["Browser Client"]
+        ArchPage["Architecture Page"]
+        DiagramRenderer["Diagram Renderers"]
+        ChatPanel["Chat Panel UI"]
+        MermaidJS["mermaid.js"]
+        DrawioViewer["Draw.io Viewer"]
+        ExcalidrawViewer["Excalidraw Viewer"]
+        AsciiRenderer["ASCII Renderer (pre)"]
+    end
+
+    subgraph Server["FastAPI Server"]
+        ArchRoutes["Architecture Routes"]
+        RenderRoutes["Render Routes"]
+        ChatRoutes["Chat Routes"]
+        ProviderRoutes["Provider Routes"]
+        ArchService["ArchitectureService"]
+        RenderService["RenderService"]
+        RenderCache["Render Cache (hash-keyed)"]
+        ChatService["ChatService"]
+        ProviderService["ProviderService"]
+    end
+
+    subgraph ServerRenderers["Server-Side Renderers"]
+        PlantUMLRenderer["PlantUML Renderer"]
+        D2Renderer["D2 Renderer"]
+        PlantUMLServer["plantuml.jar / PlantUML API"]
+        D2CLI["d2 CLI"]
+    end
+
+    subgraph Storage["File System"]
+        ArchDir["arch/ directory"]
+        ArchManifest["_arch.json manifest"]
+        MmdFiles[".mmd files"]
+        DrawioFiles[".drawio files"]
+        PumlFiles[".puml files"]
+        D2Files[".d2 files"]
+        ExcalidrawFiles[".excalidraw files"]
+        TxtFiles[".txt files (ASCII art)"]
+    end
+
+    subgraph External["CLI Providers"]
+        Claude["Claude CLI"]
+        OpenCode["OpenCode CLI"]
+    end
+
+    ArchPage -->|"GET /api/.../arch"| ArchRoutes
+    ArchPage -->|"GET /api/.../arch/{file}"| ArchRoutes
+    ArchPage -->|"GET /api/.../arch/{file}/render"| RenderRoutes
+    ChatPanel -->|"POST /api/.../chat"| ChatRoutes
+    ChatPanel -->|"GET /api/providers"| ProviderRoutes
+
+    ArchRoutes --> ArchService
+    RenderRoutes --> RenderService
+    ChatRoutes --> ChatService
+    ProviderRoutes --> ProviderService
+
+    ArchService -->|"read manifest"| ArchManifest
+    ArchService -->|"read files"| MmdFiles
+    ArchService -->|"read files"| DrawioFiles
+    ArchService -->|"read files"| PumlFiles
+    ArchService -->|"read files"| D2Files
+    ArchService -->|"read files"| ExcalidrawFiles
+    ArchService -->|"read files"| TxtFiles
+
+    RenderService -->|"check cache"| RenderCache
+    RenderService -->|"invoke"| PlantUMLRenderer
+    RenderService -->|"invoke"| D2Renderer
+    PlantUMLRenderer -->|"HTTP or JAR"| PlantUMLServer
+    D2Renderer -->|"subprocess"| D2CLI
+
+    ChatService -->|"get CLI command"| ProviderService
+    ChatService -->|"subprocess invoke"| Claude
+    ChatService -->|"subprocess invoke"| OpenCode
+
+    DiagramRenderer -->|"render .mmd"| MermaidJS
+    DiagramRenderer -->|"render .drawio"| DrawioViewer
+    DiagramRenderer -->|"render .excalidraw"| ExcalidrawViewer
+    DiagramRenderer -->|"render .txt"| AsciiRenderer
+    DiagramRenderer -->|"display server SVG"| RenderRoutes

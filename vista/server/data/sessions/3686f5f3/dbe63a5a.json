@@ -1,0 +1,52 @@
+{
+  "id": "dbe63a5a",
+  "project_id": "3686f5f3",
+  "feature_name": "diagram_representations",
+  "name": "who are you?",
+  "provider": "opencode",
+  "model": "opencode/minimax-m2.1-free",
+  "messages": [
+    {
+      "role": "user",
+      "content": "who are you?",
+      "timestamp": "2026-02-11T00:46:06.445521+00:00"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm opencode, an interactive CLI tool that helps with software engineering tasks like reading/editing code, debugging, and working with architecture diagrams.\n\nHow can I help you today?",
+      "timestamp": "2026-02-11T00:46:21.119233+00:00"
+    },
+    {
+      "role": "user",
+      "content": "which model?",
+      "timestamp": "2026-02-11T00:46:28.745779+00:00"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm powered by **minimax-m2.1-free** (model ID: opencode/minimax-m2.1-free).\n\nHow can I help you with your software engineering tasks or architecture diagrams?",
+      "timestamp": "2026-02-11T00:46:42.923626+00:00"
+    },
+    {
+      "role": "user",
+      "content": "add a new Ui element to the Architechture Diagrams page to show me you can edit and I can see the edits. You choose the UI element.",
+      "timestamp": "2026-02-11T00:50:38.045055+00:00"
+    },
+    {
+      "role": "user",
+      "content": "I meant to the diagram",
+      "timestamp": "2026-02-11T00:52:39.000861+00:00"
+    },
+    {
+      "role": "assistant",
+      "content": "Added a **DiagramFilterBar** UI element with components:\n- `SearchInput` - search diagrams by name\n- `TypeFilterDropdown` - filter by diagram type (Mermaid, Draw.io, etc.)\n- `SortDropdown` - sort by date, name, or size\n- `ClearFiltersBtn` - reset all filters\n\nThe flow now shows: `LoadManifest` \u2192 `RenderDiagrams` \u2192 `FilterDiagrams` \u2192 `ClickChat`",
+      "timestamp": "2026-02-11T00:53:16.736649+00:00"
+    },
+    {
+      "role": "user",
+      "content": "addd the line below here ChatToggleButton on the ArchitechtureDiagramsPage on the box",
+      "timestamp": "2026-02-11T00:55:25.792692+00:00"
+    }
+  ],
+  "created_at": "2026-02-11T00:45:55.174653+00:00",
+  "updated_at": "2026-02-11T00:55:25.792696+00:00"
+}

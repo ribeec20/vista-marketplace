@@ -1,0 +1,15 @@
+---
+Iteration: 1 (plan)
+Time: 2026-02-12T00:00:00Z
+
+Plan written to: C:/Users/Grove/OneDrive/Documents/PYTHON/claude_plugins/vista/.vista/ralph/architecture-chat-plan-86118b3b/IMPLEMENTATION_PLAN.md
+Summary: Comprehensive 8-phase implementation plan covering service lifecycle management, provider router (Claude WebSocket + OpenCode REST/SSE), watchdog-based diagram watcher, context assembler, model discovery, frontend changes, and Companion fork integration — with 10 new files, 11 modified files, and 4 TDD-candidate test suites.
+---
+
+---
+Iteration: 2 (plan)
+Time: 2026-02-12T12:00:00Z
+
+Plan written to: C:/Users/Grove/OneDrive/Documents/PYTHON/claude_plugins/vista/.vista/ralph/architecture-chat-plan-86118b3b/IMPLEMENTATION_PLAN.md
+Summary: v2 plan with 10+ protocol corrections from Companion/OpenCode source code analysis — fixed WS message types (user_message not user), permission flags (--permission-mode), OpenCode async API (prompt_async + SSE), permission_response format (behavior: "allow"), added backend_session_id model field, Windows subprocess flags, and consolidated _start_opencode_serve from mcp_server.py into lifecycle manager. Refined to 8 new files, 9 modified, 2 removed.
+---

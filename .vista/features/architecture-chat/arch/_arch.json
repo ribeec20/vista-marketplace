@@ -1,0 +1,53 @@
+{
+  "feature": "architecture-chat",
+  "diagrams": [
+    {
+      "name": "System Architecture",
+      "file": "system-architecture.mmd",
+      "type": "mermaid",
+      "diagramType": "flowchart",
+      "category": "architecture",
+      "description": "High-level system showing Vista FastAPI hub, Companion WebSocket bridge, OpenCode server, browser frontend, and file system interactions"
+    },
+    {
+      "name": "User Flow",
+      "file": "user-flow.mmd",
+      "type": "mermaid",
+      "diagramType": "flowchart",
+      "category": "architecture",
+      "description": "End-to-end user journey from opening architecture page through chatting with AI and seeing live diagram edits"
+    },
+    {
+      "name": "Data Model",
+      "file": "data-model.mmd",
+      "type": "mermaid",
+      "diagramType": "er",
+      "category": "architecture",
+      "description": "Entity-relationship diagram showing ChatSession, Provider, Feature, Diagram, and ServiceInstance models"
+    },
+    {
+      "name": "Claude Chat Sequence",
+      "file": "sequence-claude-chat.mmd",
+      "type": "mermaid",
+      "diagramType": "sequence",
+      "category": "architecture",
+      "description": "Message flow for Claude provider: Browser → Vista → Companion WebSocket bridge → Claude CLI, including streaming and diagram edit detection"
+    },
+    {
+      "name": "OpenCode Chat Sequence",
+      "file": "sequence-opencode-chat.mmd",
+      "type": "mermaid",
+      "diagramType": "sequence",
+      "category": "architecture",
+      "description": "Message flow for OpenCode provider: Browser → Vista → OpenCode REST API + SSE streaming, including diagram edit detection"
+    },
+    {
+      "name": "Service Lifecycle States",
+      "file": "state-service-lifecycle.mmd",
+      "type": "mermaid",
+      "diagramType": "state",
+      "category": "architecture",
+      "description": "State machine for managed services (Vista, Companion, OpenCode) showing startup, health checking, crash recovery, and auto-restart with backoff"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+sequenceDiagram
+    participant User as Developer
+    participant Agent as AI Agent (Claude)
+    participant FS as File System
+
+    User->>Agent: Run /vista:plan <feature-name>
+    Note over Agent: Plan workflow begins,<br>domain requirements and specs gathered
+
+    Agent->>FS: Create arch/ directory in .vista/features/<name>/
+
+    Note over Agent: Choose best format per diagram type
+
+    Agent->>FS: Write .mmd files (flowcharts, sequences, ER, state)
+    Note over FS: system-architecture.mmd<br>user-flow.mmd<br>sequence-*.mmd
+
+    opt Hardware/network diagrams needed
+        Agent->>FS: Write .puml files (nwdiag, component)
+        Note over FS: network-topology.puml<br>component-layout.puml
+    end
+
+    opt Infrastructure/rack diagrams needed
+        Agent->>FS: Write .d2 files (spatial layouts)
+        Note over FS: infrastructure.d2<br>rack-diagram.d2
+    end
+
+    opt Freeform spatial diagrams needed
+        Agent->>FS: Write .excalidraw files (hand-drawn style)
+        Note over FS: hardware-layout.excalidraw
+    end
+
+    opt Quick text diagrams
+        Agent->>FS: Write .txt files (ASCII art)
+        Note over FS: pinout.txt<br>bus-timing.txt
+    end
+
+    Agent->>FS: Write _arch.json manifest
+    Note over FS: Manifest references all diagram files<br>with correct type field per format
+
+    Agent->>FS: Write _plan.json with architecture.ref
+    Note over FS: Plan has meta, architecture.ref → ./arch/_arch.json,<br>and implementationPhases

@@ -1,0 +1,6 @@
+{
+  "vista-dashboard": {
+    "command": "python",
+    "args": ["${CLAUDE_PLUGIN_ROOT}/mcp_server.py"]
+  }
+}

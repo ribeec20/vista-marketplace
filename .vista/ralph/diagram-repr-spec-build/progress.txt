@@ -1,0 +1,70 @@
+---
+Iteration: 1
+Time: 2026-02-15
+
+WHAT WAS DONE:
+- vista/templates/arch-schema.json: Extended type enum from ["mermaid", "drawio"] to ["mermaid", "drawio", "plantuml", "d2", "graphviz", "markdown"]
+- vista/server/services/progress_service.py: Added write_arch_file() method with path traversal protection and .md-only extension whitelist
+- vista/server/routes/architecture.py: Added PUT /api/projects/{id}/features/{name}/arch/{filename} endpoint for markdown file writing; updated content-type mapping to dictionary-based lookup supporting all 6 extensions; added pydantic BaseModel import; passed plantuml_url to architecture viewer template
+- vista/server/config.py: Added _DIAGRAM_DEFAULTS dict and get_diagram_settings() function for PlantUML server URL configuration
+- vista/server/services/diagram_watcher.py: Extended WATCH_EXTENSIONS in both locations to include .puml, .d2, .dot, .md; added EXT_TO_TYPE mapping and _detect_file_type() function; updated _update_manifest_sync() to use extension-based type detection with "custom" diagramType for non-mermaid files
+- vista/tests/test_architecture.py: Added 23 new tests across 5 new classes (TestProgressServiceWrite, TestArchWriteAPI, TestExtendedSchemaValidation, TestContentTypes, TestDiagramSettings)
+- vista/tests/test_diagram_watcher.py: Added 16 new tests in TestExtendedFileTypes class covering WATCH_EXTENSIONS, _detect_file_type(), and manifest update for all new types; updated existing test_drawio_type to expect "custom" diagramType
+
+WHAT WAS NOT DONE:
+- Phase 2 (Client-side renderer infrastructure): Deferred to iteration 2 — requires refactoring architecture.html JavaScript
+- Phase 3 (Markdown inline editor): Deferred to iteration 2/3 — depends on Phase 2
+- Phase 4 (Template & watcher integration): Partially done (plantuml_url injection); CDN scripts and type passing deferred to iteration 2
+- Phase 6 (Documentation & skill updates): Deferred to final iteration
+
+Tests: 95 passing, 0 failing — test_architecture.py (53 tests) + test_diagram_watcher.py (42 tests)
+---
+
+---
+Iteration: 2
+Time: 2026-02-15
+
+WHAT WAS DONE:
+- vista/server/views/architecture.html: Added PlantUML encoder CDN script (plantuml-encoder@1.4.0); added PLANTUML_SERVER_URL JS constant from template context
+- vista/server/views/architecture.html: Refactored renderDiagramContent() from filename-extension check to RENDERERS dispatch map supporting all 6 diagram types (mermaid, plantuml, d2, graphviz, drawio, markdown)
+- vista/server/views/architecture.html: Extracted renderMermaid() as standalone function (preserving node click handlers and selection reapplication)
+- vista/server/views/architecture.html: Added renderPlantUML() — encodes source via plantumlEncoder, fetches SVG from PLANTUML_SERVER_URL, error fallback to raw source
+- vista/server/views/architecture.html: Added renderD2() — optional Kroki server rendering, fallback to raw source with info message
+- vista/server/views/architecture.html: Added renderGraphviz() — lazy-loads @viz-js/viz@3.11.0 WASM, renders DOT to SVG, error fallback
+- vista/server/views/architecture.html: Added renderDrawio() — iframe-based viewer via viewer.diagrams.net with base64-encoded content
+- vista/server/views/architecture.html: Added renderMarkdown() — uses already-loaded marked.js, stores rawContent in dataset for edit mode
+- vista/server/views/architecture.html: Updated loadDiagrams() to pass diagram.type as 5th arg to renderDiagramContent()
+- vista/server/views/architecture.html: Updated updateDiagram() and addDiagramCard() to pass diagram type; addDiagramCard now infers type from extension
+- vista/server/views/architecture.html: Added markdown edit button (&#9998;) conditionally to Jinja2 template card headers for type=='markdown'
+- vista/server/views/architecture.html: Added edit button to dynamically created cards in addDiagramCard() for markdown type
+- vista/server/views/architecture.html: Implemented full markdown inline editor — toggleMarkdownEdit(), enterMarkdownEdit(), cancelMarkdownEdit(), saveMarkdown() state machine
+- vista/server/views/architecture.html: Added Ctrl+S save and Escape cancel keyboard shortcuts for markdown editor
+- vista/server/views/architecture.html: Added autoResizeTextarea() and updateEditButton() helper functions
+- vista/server/views/static/arch-chat.css: Added markdown editor styles (.md-editor-container, .md-editor-toolbar, .md-editor, .md-edit-btn, .md-save-btn, .md-cancel-btn, .md-save-indicator)
+- vista/server/views/static/arch-chat.css: Added rendered markdown content styles (.markdown-content with h1-h3, pre, code, table, blockquote, links)
+- vista/server/views/static/arch-chat.css: Added diagram error and raw source display styles (.diagram-error, .diagram-raw-source)
+
+WHAT WAS NOT DONE:
+- Phase 5 remainder (Integration tests for full render pipeline): Deferred to iteration 3 — would need browser-based testing framework
+- Phase 6 (Documentation & skill updates): Deferred to iteration 3 — plan skill, diagrams skill, spec docs
+
+Tests: 95 passing, 0 failing — test_architecture.py (53 tests) + test_diagram_watcher.py (42 tests)
+---
+
+---
+Iteration: 3
+Time: 2026-02-15
+
+WHAT WAS DONE:
+- .vista/features/diagram_representations/specs/arch-directory.md: Updated supported types from 2 to 6 (mermaid, drawio, plantuml, d2, graphviz, markdown); updated DiagramEntry type union; added Workflow 3 for markdown inline editing; added 6 new acceptance criteria for multi-format support; expanded implementation notes with write endpoint, watcher, and PlantUML config details; updated resolved questions
+- .vista/features/diagram_representations/specs/rendering-pipeline.md: Updated scope to list all 6 renderers; expanded functional requirements from 7 to 11; updated workflow with type-based dispatch details; replaced 2-row renderer table with 6-row table; added CDN dependencies table with sizes and loading strategies; added server dependencies table; updated libraries/APIs section; expanded patterns section with lazy/eager loading and graceful degradation; marked 13 of 14 acceptance criteria complete; expanded implementation notes and resolved questions
+- vista/skills/plan/SKILL.md: Updated Step 3a with supported formats table (6 formats with extensions, use cases, and rendering info); added design-rationale.md example; updated Step 3b heading; updated manifest example with markdown entry and type values documentation; updated output files section with optional format extensions
+- vista/skills/diagrams/SKILL.md: Updated frontmatter description to mention all 6 formats; added "Supported Diagram Formats" section with format comparison table and usage guidance; updated Resources section with Vista architecture viewer format documentation
+
+WHAT WAS NOT DONE:
+- Phase 5 remainder (Integration tests for full render pipeline): Not feasible — requires browser-based testing framework (Playwright/Cypress) which is not set up in this project
+
+Tests: 95 passing, 0 failing — test_architecture.py (53 tests) + test_diagram_watcher.py (42 tests)
+
+ALL PHASES COMPLETE
+---

@@ -1,0 +1,52 @@
+erDiagram
+    JOB ||--o| CONTAINER_INFO : "has (if sandboxed)"
+    JOB {
+        string job_id PK
+        string task
+        string provider
+        string model
+        int pid
+        string status
+        boolean sandbox
+        datetime created_at
+    }
+
+    CONTAINER_INFO {
+        string container_id PK
+        string job_id FK
+        string image
+        string status
+        datetime created_at
+        datetime expires_at
+        json labels
+    }
+
+    CONTAINER_INFO ||--|{ MOUNT : "has"
+    MOUNT {
+        string host_path
+        string container_path
+        string mode "rw or ro"
+        string type "project or credential"
+    }
+
+    SETTINGS ||--o| SANDBOX_CONFIG : "contains"
+    SETTINGS {
+        json providers
+        json ralph
+    }
+
+    SANDBOX_CONFIG {
+        string image "vista-ralph:latest"
+        boolean network_enabled "true"
+        int ttl_seconds "7200"
+        json credential_mounts
+    }
+
+    SANDBOX_CONFIG ||--|{ CREDENTIAL_MOUNT : "has"
+    CREDENTIAL_MOUNT {
+        string name "claude_auth, git_ssh, etc"
+        string host_path "~/.claude/"
+        string container_path "/home/user/.claude/"
+        string mode "ro"
+        boolean enabled "true"
+    }

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net">
+  <diagram name="Network Topology" id="net-topo-1">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="2" value="Load Balancer" style="shape=mxgraph.cisco.switches.layer_3_switch;sketch=0;fillColor=#036897;fontColor=#ffffff;strokeColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="450" y="100" width="100" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="3" value="Web Server 1" style="shape=mxgraph.cisco.servers.standard_server;sketch=0;fillColor=#036897;fontColor=#ffffff;strokeColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="250" y="250" width="80" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="4" value="Web Server 2" style="shape=mxgraph.cisco.servers.standard_server;sketch=0;fillColor=#036897;fontColor=#ffffff;strokeColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="450" y="250" width="80" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="5" value="Web Server 3" style="shape=mxgraph.cisco.servers.standard_server;sketch=0;fillColor=#036897;fontColor=#ffffff;strokeColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="650" y="250" width="80" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="6" value="Database" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#036897;fontColor=#ffffff;strokeColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="450" y="420" width="100" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="7" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="3" parent="1"/>
+        <mxCell id="8" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="4" parent="1"/>
+        <mxCell id="9" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="5" parent="1"/>
+        <mxCell id="10" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="3" target="6" parent="1"/>
+        <mxCell id="11" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="4" target="6" parent="1"/>
+        <mxCell id="12" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="5" target="6" parent="1"/>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

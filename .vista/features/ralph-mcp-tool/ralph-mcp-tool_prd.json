@@ -1,0 +1,798 @@
+[
+  {
+    "category": "functional",
+    "description": "ralph_providers returns all enabled providers with filtered model lists",
+    "steps": [
+      "Call ralph_providers MCP tool with no parameters",
+      "Verify response is valid JSON with 'providers', 'defaults', and 'summarizer' keys",
+      "Verify only enabled providers (both top-level and ralph.providers) are included",
+      "Verify each provider has 'name', 'display_name', and 'models' array",
+      "Verify models reflect allowlist/blocklist filtering from settings"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_providers respects per-model allowlist filtering",
+    "steps": [
+      "Configure ralph.providers.claude.models = ['opus', 'sonnet'] in settings.json",
+      "Call ralph_providers",
+      "Verify claude provider's models array contains only 'opus' and 'sonnet'",
+      "Verify 'haiku' is NOT in the models array"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_providers respects per-model blocklist filtering",
+    "steps": [
+      "Configure ralph.providers.opencode.models_blocked = ['openai/gpt-3.5-turbo'] in settings.json",
+      "Call ralph_providers",
+      "Verify opencode provider's models array does NOT contain 'openai/gpt-3.5-turbo'",
+      "Verify all other opencode models are present"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_providers returns defaults and summarizer config",
+    "steps": [
+      "Configure ralph.defaults and ralph.summarizer in settings.json",
+      "Call ralph_providers",
+      "Verify defaults object has 'provider', 'model', 'iterations' fields matching settings",
+      "Verify summarizer object has 'provider', 'model' fields matching settings"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "ralph_providers handles missing CLI gracefully",
+    "steps": [
+      "Enable opencode provider but ensure opencode CLI is not installed",
+      "Call ralph_providers",
+      "Verify opencode provider appears with empty models array",
+      "Verify no crash or exception - tool returns valid JSON"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "ralph_providers handles missing ralph settings section",
+    "steps": [
+      "Remove the 'ralph' section from settings.json entirely",
+      "Call ralph_providers",
+      "Verify fallback to top-level providers with all models available",
+      "Verify default iterations = 3"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_start creates job directory and spawns subprocess for plan mode",
+    "steps": [
+      "Call ralph_start with slug='test-plan', mode='plan', task_description='Test planning task'",
+      "Verify .vista/ralph/test-plan/ directory is created",
+      "Verify job.json exists with correct metadata (job_id, slug, mode, status, provider, model)",
+      "Verify task.md contains the task description",
+      "Verify PROMPT_plan.md is generated from template",
+      "Verify progress.txt is created",
+      "Verify response contains job_id and status='running'",
+      "Verify a subprocess was spawned (PID recorded in job.json)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_start creates job directory and spawns subprocess for build mode",
+    "steps": [
+      "Call ralph_start with slug='test-build', mode='build', task_description='Build task'",
+      "Verify .vista/ralph/test-build/ directory is created",
+      "Verify PROMPT_build.md is generated from template",
+      "Verify response contains job_id and status='running'"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_start uses default provider/model/iterations when not specified",
+    "steps": [
+      "Configure defaults in settings.json (provider='claude', model='sonnet', iterations=3)",
+      "Call ralph_start with only slug, mode, and task_description (no provider/model/iterations)",
+      "Verify job.json shows provider='claude', model='sonnet', iterations=3",
+      "Verify subprocess was invoked with the default model"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_start accepts explicit provider/model/iterations parameters",
+    "steps": [
+      "Call ralph_start with provider='claude', model='opus', iterations=5",
+      "Verify job.json shows provider='claude', model='opus', iterations=5",
+      "Verify subprocess was invoked with model='opus' and max iterations=5"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_start returns within 5 seconds",
+    "steps": [
+      "Call ralph_start and measure response time",
+      "Verify response is received within 5 seconds",
+      "Verify subprocess is running independently (tool didn't wait for completion)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "ralph_start rejects duplicate slug with active job",
+    "steps": [
+      "Call ralph_start with slug='active-job' - succeeds",
+      "Call ralph_start again with slug='active-job' while first job is still running",
+      "Verify error response indicating slug already has an active job",
+      "Verify existing job_id is included in error response for reference"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "ralph_start allows reuse of slug with completed job",
+    "steps": [
+      "Create and complete a job with slug='reuse-test'",
+      "Call ralph_start with slug='reuse-test' again",
+      "Verify new job is created with a new job_id",
+      "Verify previous job.json is preserved as job.{old-id}.json"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "ralph_start rejects invalid mode",
+    "steps": [
+      "Call ralph_start with mode='invalid'",
+      "Verify error response indicating mode must be 'plan' or 'build'"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "ralph_start rejects unavailable provider",
+    "steps": [
+      "Call ralph_start with provider='nonexistent'",
+      "Verify error response indicating provider is not enabled or not found"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_status returns lightweight progress for running job",
+    "steps": [
+      "Start a job and let it begin running",
+      "Call ralph_status with the job_id",
+      "Verify response contains status='running', current_iteration, total_iterations",
+      "Verify response contains last few lines from progress.txt",
+      "Verify response contains elapsed_time"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_status detects completed job via PID check",
+    "steps": [
+      "Start a job and wait for the subprocess to finish naturally",
+      "Call ralph_status with the job_id",
+      "Verify status is 'completed' (PID no longer alive, exit code 0)",
+      "Verify completed_at timestamp is set in job.json"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_status detects failed job via PID check",
+    "steps": [
+      "Start a job with a configuration that will cause the subprocess to fail",
+      "Wait for the subprocess to exit with non-zero code",
+      "Call ralph_status with the job_id",
+      "Verify status is 'failed'",
+      "Verify error message is populated in response"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_status returns within 1 second",
+    "steps": [
+      "Call ralph_status and measure response time",
+      "Verify response is received within 1 second",
+      "Verify no subprocess was spawned (lightweight operation)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "ralph_status returns clear error for invalid job_id",
+    "steps": [
+      "Call ralph_status with job_id='nonexistent-id'",
+      "Verify error response indicating job not found"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_summary returns AI-generated summary for completed job",
+    "steps": [
+      "Complete a plan job that produced IMPLEMENTATION_PLAN.md and progress.txt",
+      "Call ralph_summary with the job_id",
+      "Verify response is valid JSON with status_summary, completed_work, issues, recommendations",
+      "Verify the summary reflects actual content from the job artifacts"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_summary works for in-progress (running) jobs",
+    "steps": [
+      "Start a job and let it run for at least one iteration",
+      "Call ralph_summary while the job is still running",
+      "Verify summary reflects partial progress (in_progress list populated)",
+      "Verify no interference with the running loop subprocess"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_summary uses configured summarizer provider and model",
+    "steps": [
+      "Configure ralph.summarizer.provider='claude' and ralph.summarizer.model='haiku'",
+      "Call ralph_summary for a completed job",
+      "Verify the summarizer subprocess was invoked with claude CLI and haiku model"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_summary truncates large artifacts before sending to summarizer",
+    "steps": [
+      "Create a job with a very large progress.txt (1000+ lines)",
+      "Call ralph_summary",
+      "Verify progress.txt was truncated to last 100 lines in summarizer prompt",
+      "Verify IMPLEMENTATION_PLAN.md was truncated to first 500 lines"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "ralph_summary handles summarizer CLI not installed",
+    "steps": [
+      "Configure summarizer with a provider whose CLI is not installed",
+      "Call ralph_summary",
+      "Verify clear error message indicating the CLI tool is not available"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "ralph_summary handles summarizer timeout",
+    "steps": [
+      "Call ralph_summary for a job (summarizer configured to take very long)",
+      "Verify timeout after 55 seconds (within MCP 60s limit)",
+      "Verify subprocess is killed on timeout",
+      "Verify error response indicating timeout"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "ralph_summary handles malformed summarizer output",
+    "steps": [
+      "Mock summarizer CLI to return non-JSON output",
+      "Call ralph_summary",
+      "Verify graceful fallback - raw text returned or best-effort parse"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_stop terminates running job subprocess",
+    "steps": [
+      "Start a job and confirm it's running",
+      "Call ralph_stop with the job_id",
+      "Verify subprocess is terminated (PID no longer alive)",
+      "Verify job.json status updated to 'stopped'",
+      "Verify response confirms the stop"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "ralph_stop handles already-completed job gracefully",
+    "steps": [
+      "Complete a job naturally",
+      "Call ralph_stop with the completed job's id",
+      "Verify response indicates job already completed (not an error, just informational)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "ralph_stop handles invalid job_id",
+    "steps": [
+      "Call ralph_stop with job_id='nonexistent'",
+      "Verify error response indicating job not found"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Full plan+build lifecycle via MCP tools",
+    "steps": [
+      "Call ralph_providers to discover available options",
+      "Call ralph_start with slug='lifecycle-test', mode='plan', provider and model from discovery",
+      "Poll ralph_status every 10 seconds until status is 'completed'",
+      "Call ralph_summary to get the plan summary",
+      "Verify plan artifacts exist (IMPLEMENTATION_PLAN.md, progress.txt)",
+      "Call ralph_start with same slug, mode='build'",
+      "Poll ralph_status until status is 'completed'",
+      "Call ralph_summary to get the build summary",
+      "Verify build artifacts exist and code changes were made"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Settings filtering: both provider levels must be enabled",
+    "steps": [
+      "Set top-level providers.opencode.enabled=true",
+      "Set ralph.providers.opencode.enabled=false",
+      "Call ralph_providers",
+      "Verify opencode is NOT in the returned providers list",
+      "Reverse: set top-level to false, ralph to true",
+      "Verify opencode is still NOT in the returned providers list"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Settings filtering: allowlist takes precedence over blocklist",
+    "steps": [
+      "Set ralph.providers.claude with both models=['opus'] and models_blocked=['haiku']",
+      "Call ralph_providers",
+      "Verify only 'opus' is returned (models allowlist wins)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Job state survives MCP server restart",
+    "steps": [
+      "Start a ralph job",
+      "Restart the MCP server (kill and relaunch)",
+      "Call ralph_status with the original job_id",
+      "Verify status is correctly reported (running or completed depending on subprocess state)",
+      "Verify job metadata is intact from disk"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Multiple concurrent ralph jobs run independently",
+    "steps": [
+      "Call ralph_start with slug='job-a'",
+      "Call ralph_start with slug='job-b'",
+      "Verify both jobs are running (different PIDs)",
+      "Call ralph_status for each - both report independent progress",
+      "Stop job-a, verify job-b continues running"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Dashboard API lists all ralph jobs",
+    "steps": [
+      "Create 3 ralph jobs with different statuses (running, completed, failed)",
+      "GET /api/ralph/jobs",
+      "Verify response contains all 3 jobs with correct metadata",
+      "Verify jobs are sorted by creation time (newest first)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Dashboard API returns job detail",
+    "steps": [
+      "Create a ralph job",
+      "GET /api/ralph/jobs/{job_id}",
+      "Verify response contains full job metadata",
+      "Verify progress content is included",
+      "Verify artifact file listing is included"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Dashboard API returns progress.txt content",
+    "steps": [
+      "Create a ralph job and let it produce progress output",
+      "GET /api/ralph/jobs/{job_id}/progress",
+      "Verify response contains progress.txt content",
+      "Verify content updates on subsequent requests as job progresses"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Dashboard API lists and reads artifact files",
+    "steps": [
+      "Complete a ralph job that produced multiple artifacts",
+      "GET /api/ralph/jobs/{job_id}/artifacts",
+      "Verify response lists all files in the job directory",
+      "GET /api/ralph/jobs/{job_id}/artifacts/IMPLEMENTATION_PLAN.md",
+      "Verify response contains the file contents"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Dashboard API can stop a running job",
+    "steps": [
+      "Start a ralph job",
+      "POST /api/ralph/jobs/{job_id}/stop",
+      "Verify job status changes to 'stopped'",
+      "Verify subprocess is terminated"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "Dashboard API handles nonexistent job gracefully",
+    "steps": [
+      "GET /api/ralph/jobs/nonexistent-id",
+      "Verify 404 response with clear error message"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Dashboard job list view renders correctly in browser",
+    "steps": [
+      "Create several ralph jobs with various statuses",
+      "Open Vista dashboard in browser",
+      "Navigate to ralph jobs section",
+      "Verify table shows slug, mode, provider, model, status, and timestamp for each job",
+      "Verify status indicators use correct colors (blue=running, green=completed, red=failed)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Dashboard job detail view shows progress and artifacts",
+    "steps": [
+      "Create a running ralph job",
+      "Click on the job in the dashboard list",
+      "Verify job detail page shows job metadata",
+      "Verify progress section displays and auto-updates",
+      "Verify artifacts section lists clickable file links"
+    ],
+    "passes": false
+  },
+  {
+    "category": "performance",
+    "description": "ralph_start returns within MCP timeout with subprocess detached",
+    "steps": [
+      "Call ralph_start 10 times with different slugs",
+      "Verify all 10 calls return within 5 seconds each",
+      "Verify no memory leaks from spawned subprocesses"
+    ],
+    "passes": false
+  },
+  {
+    "category": "performance",
+    "description": "ralph_status returns within 1 second even with large progress.txt",
+    "steps": [
+      "Create a job with a 10,000-line progress.txt",
+      "Call ralph_status",
+      "Verify response within 1 second (only reads last N lines)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "performance",
+    "description": "ralph_summary completes within MCP 60-second timeout",
+    "steps": [
+      "Create a job with substantial artifacts",
+      "Call ralph_summary",
+      "Verify summarizer subprocess completes within 55 seconds",
+      "Verify total tool response within 60 seconds"
+    ],
+    "passes": false
+  },
+  {
+    "category": "security",
+    "description": "No API keys are stored in job directories or settings",
+    "steps": [
+      "Complete a full plan+build lifecycle",
+      "Inspect all files in .vista/ralph/{slug}/",
+      "Verify no API keys, tokens, or credentials are present in any file",
+      "Inspect vista/settings.json",
+      "Verify no API keys in settings (only provider names and model names)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "security",
+    "description": "Subprocess stdin is isolated from MCP stdin",
+    "steps": [
+      "Start a ralph job",
+      "Verify subprocess uses stdin=subprocess.DEVNULL or subprocess.PIPE (not inherited)",
+      "Verify MCP server continues to function normally while subprocess runs"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Prompt files use existing portable templates with ad-hoc context",
+    "steps": [
+      "Call ralph_start with task_description='Refactor API handlers'",
+      "Read the generated PROMPT_plan.md in the job directory",
+      "Verify it follows the structure of vista/portable/templates/PROMPT_plan.md",
+      "Verify task.md reference is injected (agent looks for task.md instead of specs/)",
+      "Verify project root and feature directory paths are correct"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Job directory structure matches specification",
+    "steps": [
+      "Call ralph_start and let job complete",
+      "Verify .vista/ralph/{slug}/ contains: job.json, task.md, PROMPT_{mode}.md, progress.txt",
+      "Verify IMPLEMENTATION_PLAN.md is created by the worker (for plan mode)",
+      "Verify output.log captures subprocess stdout/stderr"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "Orphaned process detection on MCP server restart",
+    "steps": [
+      "Start a ralph job",
+      "Kill the MCP server without stopping the job",
+      "Restart MCP server",
+      "Call ralph_status - verify it correctly detects the subprocess state",
+      "If subprocess still running: status shows 'running'",
+      "If subprocess exited: status shows 'completed' or 'failed' based on exit code"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Windows platform PID checking works correctly",
+    "steps": [
+      "Start a ralph job on Windows",
+      "Call ralph_status and verify PID check returns 'running'",
+      "Let job complete naturally",
+      "Call ralph_status and verify PID check detects process ended",
+      "Verify no Windows-specific errors in output.log"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_providers returns model metadata (cost_tier, best_for_tags, best_for_notes)",
+    "steps": [
+      "Configure model_metadata for opus with cost_tier='expensive', best_for_tags=['complex reasoning']",
+      "Call ralph_providers",
+      "Verify each model object has 'cost_tier', 'best_for_tags', 'best_for_notes' fields",
+      "Verify opus model shows cost_tier='expensive' and correct tags",
+      "Verify models without metadata show null cost_tier and empty arrays"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_providers discovers models live from provider CLIs (not hardcoded)",
+    "steps": [
+      "Call ralph_providers",
+      "Verify claude models come from ClaudeProvider.get_models() (same as ralph.py line 295)",
+      "Verify opencode models come from live 'opencode models' CLI call",
+      "Add a new model to opencode config, call ralph_providers again",
+      "Verify new model appears in response without any code changes"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "ralph_start uses same LOOP_SCRIPT_TEMPLATE and provider.get_invocation() as ralph.py",
+    "steps": [
+      "Call ralph_start with provider='claude', model='opus'",
+      "Read the generated loop.ps1 in the job directory",
+      "Verify it matches the output of ralph.py's LOOP_SCRIPT_TEMPLATE.format() with same parameters",
+      "Verify the invocation block matches ClaudeProvider.get_invocation('ps1')",
+      "Verify PowerShell execution flags match ralph.py (ExecutionPolicy Bypass)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Settings UI page loads with live model discovery",
+    "steps": [
+      "Navigate to /settings/ralph in browser",
+      "Verify page calls GET /api/settings/ralph which calls provider.get_models() live",
+      "Verify claude models table shows rows from ClaudeProvider.get_models()",
+      "Verify opencode models table shows rows from live 'opencode models' CLI",
+      "Verify model names are NOT hardcoded in the HTML template"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Settings UI shows provider enable/disable toggles",
+    "steps": [
+      "Navigate to /settings/ralph",
+      "Verify each provider has an enable/disable checkbox",
+      "Toggle opencode off",
+      "Click Save",
+      "Verify settings.json ralph.providers.opencode.enabled is now false",
+      "Call ralph_providers MCP tool",
+      "Verify opencode no longer appears in providers list"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Settings UI allows per-model allowed/blocked toggles",
+    "steps": [
+      "Navigate to /settings/ralph",
+      "Uncheck 'Allowed' for haiku model under claude provider",
+      "Click Save",
+      "Verify settings.json ralph.providers.claude.models_allowed does NOT contain 'haiku'",
+      "Call ralph_providers MCP tool",
+      "Verify haiku is not in claude's models list"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Settings UI allows cost tier selection per model",
+    "steps": [
+      "Navigate to /settings/ralph",
+      "Select 'expensive' from cost tier dropdown for opus",
+      "Select 'moderate' for sonnet",
+      "Select 'cheap' for haiku",
+      "Click Save",
+      "Verify settings.json model_metadata has correct cost_tier values",
+      "Call ralph_providers",
+      "Verify each model returns its cost_tier in the response"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Settings UI allows best-for tag selection with predefined tags and freeform notes",
+    "steps": [
+      "Navigate to /settings/ralph",
+      "Select 'complex reasoning' and 'architecture' tags from multi-select for opus",
+      "Type 'Great for difficult refactoring tasks' in the notes field for opus",
+      "Click Save",
+      "Verify settings.json model_metadata.opus has best_for_tags=['complex reasoning', 'architecture']",
+      "Verify best_for_notes contains the freeform text",
+      "Call ralph_providers",
+      "Verify opus model returns both tags and notes"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Settings UI defaults section has cascading provider/model dropdowns",
+    "steps": [
+      "Navigate to /settings/ralph",
+      "Verify default provider dropdown shows enabled providers",
+      "Change default provider from 'claude' to 'opencode'",
+      "Verify default model dropdown updates to show opencode's models (live discovered)",
+      "Select a model, click Save",
+      "Verify settings.json ralph.defaults updated correctly"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Settings UI summarizer section configuration",
+    "steps": [
+      "Navigate to /settings/ralph",
+      "Verify summarizer provider and model dropdowns show current config",
+      "Change summarizer model from 'haiku' to 'sonnet'",
+      "Click Save",
+      "Verify settings.json ralph.summarizer.model is now 'sonnet'"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Settings UI save preserves non-ralph settings",
+    "steps": [
+      "Note current server and top-level providers sections in settings.json",
+      "Navigate to /settings/ralph and make changes",
+      "Click Save",
+      "Verify server section is unchanged in settings.json",
+      "Verify top-level providers section is unchanged"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Settings UI GET /api/settings/ralph returns merged live + saved data",
+    "steps": [
+      "GET /api/settings/ralph",
+      "Verify each provider has 'live_models' (from provider.get_models())",
+      "Verify each provider has 'models_allowed' and 'model_metadata' (from settings)",
+      "Verify 'available_tags' list is returned with predefined tag options"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Settings UI PUT /api/settings/ralph saves configuration",
+    "steps": [
+      "PUT /api/settings/ralph with updated ralph config",
+      "Verify 200 response",
+      "Read settings.json and verify ralph section updated",
+      "Verify other sections preserved"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "Settings UI handles provider CLI not installed",
+    "steps": [
+      "Navigate to /settings/ralph with opencode CLI not installed",
+      "Verify opencode provider section shows empty model table",
+      "Verify warning message: 'CLI not found' or similar"
+    ],
+    "passes": false
+  },
+  {
+    "category": "error-handling",
+    "description": "Settings UI handles stale model metadata",
+    "steps": [
+      "Configure model_metadata for a model that no longer exists in provider.get_models()",
+      "Navigate to /settings/ralph",
+      "Verify stale model appears grayed out with 'Not available' badge",
+      "Verify user can remove the stale entry"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "Settings UI Refresh Models button re-discovers without page reload",
+    "steps": [
+      "Navigate to /settings/ralph",
+      "Click 'Refresh Models' button",
+      "Verify GET /api/settings/ralph/models is called",
+      "Verify model tables update with fresh live discovery results"
+    ],
+    "passes": false
+  },
+  {
+    "category": "ui-ux",
+    "description": "Settings UI is accessible from dashboard navigation",
+    "steps": [
+      "Open Vista dashboard",
+      "Verify settings/ralph link is visible in navigation sidebar",
+      "Click the link",
+      "Verify settings page loads correctly"
+    ],
+    "passes": false
+  },
+  {
+    "category": "ui-ux",
+    "description": "Settings UI shows unsaved changes indicator",
+    "steps": [
+      "Navigate to /settings/ralph",
+      "Make a change (e.g., toggle a model)",
+      "Verify Save button visually indicates unsaved changes (highlight, badge, etc.)",
+      "Click Save",
+      "Verify indicator clears after successful save"
+    ],
+    "passes": false
+  }
+]

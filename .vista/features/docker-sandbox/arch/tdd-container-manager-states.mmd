@@ -1,0 +1,75 @@
+stateDiagram-v2
+    %% TDD: ContainerManager State Diagram
+    %% Every transition = testable assertion
+    %% Every missing transition = test that it raises InvalidStateError
+
+    [*] --> Uninitialized: ContainerManager instantiated
+
+    state "Uninitialized" as Uninitialized
+    state "ImageChecking" as ImageChecking
+    state "Building" as Building
+    state "Creating" as Creating
+    state "Starting" as Starting
+    state "Running" as Running
+    state "Stopping" as Stopping
+    state "Removed" as Removed
+    state "Expired" as Expired
+    state "Failed" as Failed
+
+    %% Happy path transitions (each labeled with triggering method)
+    Uninitialized --> ImageChecking: ensure_image()
+    ImageChecking --> Creating: image found locally
+    ImageChecking --> Building: image not found
+    Building --> Creating: build_image() succeeds
+    Creating --> Starting: create_container() returns container_id
+    Starting --> Running: start_container() succeeds
+    Running --> Stopping: stop_container() called
+    Stopping --> Removed: auto_remove=true completes
+
+    %% TTL expiry path
+    Running --> Expired: TTL timeout reached
+    Expired --> Removed: force_remove_container()
+
+    %% Error transitions (each with specific error type)
+    ImageChecking --> Failed: DockerNotAvailableError
+    Building --> Failed: ImageBuildError
+    Creating --> Failed: ContainerCreateError
+    Starting --> Failed: ContainerStartError
+    Running --> Failed: ContainerCrashedError
+
+    %% Cleanup from failed state
+    Failed --> Removed: cleanup_failed_container()
+
+    %% Terminal state
+    Removed --> [*]
+
+    note right of Uninitialized
+        Test: reject stop_container()
+        Test: reject start_container()
+        Only ensure_image() valid
+    end note
+
+    note right of Running
+        Test: output.log writable via mount
+        Test: container labels present
+        Test: reject create_container()
+        Test: reject ensure_image()
+    end note
+
+    note right of Failed
+        Test: output.log preserved
+        Test: error type captured
+        Test: container_id still accessible
+        for cleanup
+    end note
+
+    note left of Building
+        Test: progress callback invoked
+        Test: timeout after build_timeout_s
+    end note
+
+    note left of Expired
+        Test: TTL checked periodically
+        Test: force stop issued
+        Test: event logged
+    end note

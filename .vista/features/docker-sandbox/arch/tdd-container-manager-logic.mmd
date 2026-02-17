@@ -1,0 +1,73 @@
+flowchart TD
+    %% TDD: ContainerManager.create_and_start() logic flow
+    %% Every node = testable assertion
+    %% Every diamond = branch requiring two tests (true/false)
+
+    %% Inputs
+    INPUT_IMAGE["Input: image_name: str<br/>default='vista-ralph:latest'"]
+    INPUT_MOUNTS["Input: mounts: list[MountSpec]<br/>(project_mount + credential_mounts)"]
+    INPUT_LABELS["Input: labels: dict[str, str]<br/>{'managed-by': 'vista', 'vista-job-id': job_id}"]
+    INPUT_ENV["Input: env_vars: dict[str, str]<br/>optional environment variables"]
+    INPUT_NET["Input: network_mode: str<br/>'bridge' (default) or 'host'"]
+    INPUT_TTL["Input: ttl_seconds: int<br/>default=7200"]
+
+    INPUT_IMAGE --> CHECK_DOCKER
+    INPUT_MOUNTS --> RESOLVE_MOUNTS
+    INPUT_LABELS --> CREATE
+    INPUT_ENV --> CREATE
+    INPUT_NET --> CREATE
+    INPUT_TTL --> CREATE
+
+    %% Step 1: Check Docker
+    CHECK_DOCKER{Docker daemon<br/>reachable?<br/>client.ping()}
+    CHECK_DOCKER -->|No| ERR_DOCKER["Raise DockerNotAvailableError<br/>'Docker daemon is not running.<br/>Please start Docker Desktop.'"]
+    CHECK_DOCKER -->|Yes| CHECK_IMAGE
+
+    %% Step 2: Check image
+    CHECK_IMAGE{Image exists<br/>locally?<br/>client.images.get(name)}
+    CHECK_IMAGE -->|Yes| RESOLVE_MOUNTS
+    CHECK_IMAGE -->|No| BUILD_IMAGE
+
+    %% Step 2a: Build image
+    BUILD_IMAGE["Build image from Dockerfile<br/>client.images.build(<br/>  path=dockerfile_dir,<br/>  tag=image_name,<br/>  rm=True)"]
+    BUILD_IMAGE --> BUILD_OK{Build<br/>succeeded?}
+    BUILD_OK -->|Yes| RESOLVE_MOUNTS
+    BUILD_OK -->|No| ERR_BUILD["Raise ImageBuildError<br/>include build log output"]
+
+    %% Step 3: Resolve mounts
+    RESOLVE_MOUNTS["Validate mount specs:<br/>- Each host_path exists<br/>- Each mode is 'ro' or 'rw'<br/>- Convert to Docker Mount objects"]
+    RESOLVE_MOUNTS --> MOUNT_VALID{All mounts<br/>valid?}
+    MOUNT_VALID -->|Yes| CREATE
+    MOUNT_VALID -->|No| ERR_MOUNT["Raise MountValidationError<br/>'Host path does not exist: {path}'"]
+
+    %% Step 4: Create container
+    CREATE["Create container:<br/>client.containers.create(<br/>  image=image_name,<br/>  mounts=docker_mounts,<br/>  labels=labels,<br/>  environment=env_vars,<br/>  network_mode=network_mode,<br/>  auto_remove=True,<br/>  detach=True)"]
+    CREATE --> CREATE_OK{Container<br/>created?}
+    CREATE_OK -->|Yes| START
+    CREATE_OK -->|No| ERR_CREATE["Raise ContainerCreateError<br/>include Docker API error detail"]
+
+    %% Step 5: Start container
+    START["Start container:<br/>container.start()"]
+    START --> START_OK{Container<br/>started?}
+    START_OK -->|Yes| REGISTER_TTL
+    START_OK -->|No| ERR_START["Raise ContainerStartError<br/>attempt cleanup: container.remove(force=True)"]
+
+    %% Step 6: Register TTL
+    REGISTER_TTL["Register TTL expiry:<br/>expires_at = now + ttl_seconds<br/>Store in _active_containers dict"]
+
+    %% Output
+    REGISTER_TTL --> OUTPUT["Return: ContainerResult(<br/>  container_id: str,<br/>  image: str,<br/>  status: 'running',<br/>  expires_at: datetime)"]
+
+    %% Error styling
+    style ERR_DOCKER fill:#f44,color:#fff
+    style ERR_BUILD fill:#f44,color:#fff
+    style ERR_MOUNT fill:#f44,color:#fff
+    style ERR_CREATE fill:#f44,color:#fff
+    style ERR_START fill:#f44,color:#fff
+    style OUTPUT fill:#4a4,color:#fff
+    style INPUT_IMAGE fill:#26c,color:#fff
+    style INPUT_MOUNTS fill:#26c,color:#fff
+    style INPUT_LABELS fill:#26c,color:#fff
+    style INPUT_ENV fill:#26c,color:#fff
+    style INPUT_NET fill:#26c,color:#fff
+    style INPUT_TTL fill:#26c,color:#fff

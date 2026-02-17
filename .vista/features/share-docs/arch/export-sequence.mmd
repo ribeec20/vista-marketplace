@@ -1,0 +1,48 @@
+sequenceDiagram
+    actor User
+    participant ProjectPage as Project Page
+    participant Modal as Export Modal
+    participant API as FastAPI Routes
+    participant ExportSvc as ExportService
+    participant ProgressSvc as ProgressService
+    participant FS as File System
+    participant Template as Jinja2 Template
+
+    User->>ProjectPage: Click "Export Docs"
+    ProjectPage->>Modal: Open modal (show loading)
+    Modal->>API: GET /export/features
+    API->>ExportSvc: get_exportable_features(path)
+    ExportSvc->>FS: Scan .vista/features/
+    loop Each feature directory
+        ExportSvc->>ProgressSvc: read_arch_manifest()
+        ProgressSvc->>FS: Read _arch.json
+        FS-->>ProgressSvc: manifest data
+        ExportSvc->>ProgressSvc: read_domain_requirements()
+        ProgressSvc->>FS: Read domain-requirements.md
+        FS-->>ProgressSvc: markdown or None
+    end
+    ExportSvc-->>API: Feature tree array
+    API-->>Modal: JSON response
+    Modal->>Modal: Render tree checklist
+
+    User->>Modal: Select features/diagrams
+    User->>Modal: Click "Download"
+    Modal->>API: POST /export {features}
+    API->>ExportSvc: generate_export_html(name, path, selections)
+    loop Each selected feature
+        ExportSvc->>ProgressSvc: read_arch_manifest()
+        ProgressSvc-->>ExportSvc: manifest
+        loop Each selected diagram
+            ExportSvc->>ProgressSvc: read_arch_file(filename)
+            ProgressSvc->>FS: Read .mmd file
+            FS-->>ProgressSvc: diagram content
+        end
+        ExportSvc->>ProgressSvc: read_domain_requirements()
+        ProgressSvc-->>ExportSvc: markdown
+    end
+    ExportSvc->>Template: Render export.html
+    Template-->>ExportSvc: HTML string
+    ExportSvc-->>API: HTML
+    API-->>Modal: HTML (Content-Disposition: attachment)
+    Modal->>User: Browser file download
+    Modal->>Modal: Close modal

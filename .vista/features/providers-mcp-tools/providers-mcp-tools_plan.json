@@ -1,0 +1,178 @@
+{
+  "meta": {
+    "feature": "providers-mcp-tools",
+    "version": 1,
+    "created": "2026-02-10T00:00:00Z",
+    "lastModified": "2026-02-10T00:00:00Z",
+    "status": "draft",
+    "description": "MCP tools for provider/model discovery and one-shot CLI agent invocation, following the tool_groups pattern"
+  },
+  "sections": {
+    "architecture": {
+      "ref": "./arch/_arch.json"
+    },
+    "implementationPhases": {
+      "phases": [
+        {
+          "id": "phase-1",
+          "name": "Settings & Registration Scaffolding",
+          "description": "Add the providers tool group to the registration system and settings defaults. No tools yet — just the scaffolding so the group is recognized and can be enabled/disabled.",
+          "order": 1,
+          "dependencies": [],
+          "tasks": [
+            {
+              "name": "Add providers to _TOOLS_DEFAULTS",
+              "description": "Add 'providers': {'enabled': True, 'default_timeout': 120} to _TOOLS_DEFAULTS in config.py",
+              "files": ["vista/server/config.py"]
+            },
+            {
+              "name": "Add providers to settings.json",
+              "description": "Add tools.providers section to settings.json with enabled: true and default_timeout: 120",
+              "files": ["vista/settings.json"]
+            },
+            {
+              "name": "Create providers_tools.py with empty register()",
+              "description": "Create vista/tool_groups/providers_tools.py with a register(mcp, settings) function that registers no tools yet (just logs). Follow the pattern of ralph_tools.py.",
+              "files": ["vista/tool_groups/providers_tools.py"]
+            },
+            {
+              "name": "Register in _TOOL_GROUPS dict",
+              "description": "Add 'providers': 'tool_groups.providers_tools' to _TOOL_GROUPS in tool_groups/__init__.py",
+              "files": ["vista/tool_groups/__init__.py"]
+            }
+          ],
+          "acceptanceCriteria": [
+            "MCP server starts without errors with providers tool group enabled",
+            "Server log shows 'Registered tool group: providers' at startup",
+            "Disabling tools.providers.enabled = false skips registration"
+          ]
+        },
+        {
+          "id": "phase-2",
+          "name": "list_providers MCP Tool",
+          "description": "Implement the list_providers tool that returns all enabled providers with live-discovered models and metadata. Reuses existing get_ralph_providers() infrastructure.",
+          "order": 2,
+          "dependencies": ["phase-1"],
+          "tasks": [
+            {
+              "name": "Implement list_providers tool",
+              "description": "Add @mcp.tool() async def list_providers() that calls get_ralph_providers() and returns JSON with 'providers' key (no ralph-specific defaults/summarizer). Handle errors with JSON error response matching teams/ralph pattern.",
+              "files": ["vista/tool_groups/providers_tools.py"]
+            },
+            {
+              "name": "Unit tests for list_providers",
+              "description": "Test: returns correct structure, respects enabled/disabled providers, handles missing CLI gracefully, handles missing ralph settings, includes model metadata when present.",
+              "files": ["vista/tests/test_providers_tools.py"]
+            }
+          ],
+          "acceptanceCriteria": [
+            "list_providers returns JSON with providers array",
+            "Each provider has name, display_name, and models with metadata",
+            "Only enabled providers appear",
+            "Missing CLI binary results in provider with empty models array (not error)",
+            "All unit tests pass"
+          ]
+        },
+        {
+          "id": "phase-3",
+          "name": "invoke_provider MCP Tool",
+          "description": "Implement the invoke_provider tool that sends a prompt to a CLI agent via subprocess and returns the response. Uses existing _run_cli_with_timeout() and get_chat_cmd() infrastructure.",
+          "order": 3,
+          "dependencies": ["phase-1"],
+          "tasks": [
+            {
+              "name": "Create invoke_provider helper function",
+              "description": "Create a _invoke_cli_provider(provider_name, model, prompt, timeout) function in providers_tools.py that: 1) looks up provider via get_provider_by_name(), 2) validates model availability, 3) gets CLI command via get_chat_cmd(), 4) spawns subprocess with stdin pipe, 5) handles timeout with process-tree kill, 6) returns stdout or error. Reuse _run_cli_with_timeout() patterns for Windows compat (CREATE_NO_WINDOW, .cmd handling, taskkill).",
+              "files": ["vista/tool_groups/providers_tools.py"]
+            },
+            {
+              "name": "Implement invoke_provider tool",
+              "description": "Add @mcp.tool() async def invoke_provider(provider, model, prompt, timeout) that calls _invoke_cli_provider() and returns response text on success or JSON error on failure. Default timeout from settings.tools.providers.default_timeout.",
+              "files": ["vista/tool_groups/providers_tools.py"]
+            },
+            {
+              "name": "Unit tests for invoke_provider",
+              "description": "Test with mocked subprocess: success case, timeout case, non-zero exit, unknown provider, disabled provider, missing binary, unavailable model, empty response, special characters in prompt. Verify stdin piping (not CLI args).",
+              "files": ["vista/tests/test_providers_tools.py"]
+            }
+          ],
+          "acceptanceCriteria": [
+            "invoke_provider returns raw response text on success",
+            "invoke_provider returns JSON error for all error cases",
+            "Prompt is piped via stdin, not CLI arguments",
+            "Timeout kills process tree (taskkill /T /F on Windows)",
+            "CREATE_NO_WINDOW flag set on Windows",
+            ".cmd/.bat wrappers handled with cmd.exe /c prefix",
+            "All unit tests pass"
+          ]
+        },
+        {
+          "id": "phase-4",
+          "name": "Provider Base Class Documentation",
+          "description": "Document the Provider base class contract: required vs optional methods, how to add a new provider, and the get_spawn_info() forward-looking method for teams integration.",
+          "order": 4,
+          "dependencies": ["phase-2", "phase-3"],
+          "tasks": [
+            {
+              "name": "Add contract documentation to Provider class",
+              "description": "Add comprehensive docstring to Provider base class categorizing methods as required (get_models, get_chat_cmd, get_invocation) vs optional (get_summarizer_command, get_persistent_cmd, parse_stream_event, supports_streaming, stdin_pipe). Add get_summarizer_command() fallback to get_chat_cmd() in base class.",
+              "files": ["vista/server/services/provider_service.py"]
+            },
+            {
+              "name": "Add get_spawn_info() method",
+              "description": "Add get_spawn_info() -> dict to Provider base class returning {'binary': self.name, 'spawn_style': 'generic-cli', 'supports_interactive': False}. Override in ClaudeProvider (spawn_style='claude-native', supports_interactive=True) and OpenCodeProvider (spawn_style='opencode-api'). This is forward-looking for teams spawner integration.",
+              "files": ["vista/server/services/provider_service.py"]
+            },
+            {
+              "name": "Unit tests for provider contract",
+              "description": "Test: minimal subclass with only required methods works. Test: get_summarizer_command() fallback. Test: get_spawn_info() defaults and overrides.",
+              "files": ["vista/tests/test_provider_registry.py"]
+            }
+          ],
+          "acceptanceCriteria": [
+            "Provider docstring clearly documents required vs optional methods",
+            "get_summarizer_command() falls back to get_chat_cmd() in base class",
+            "get_spawn_info() returns sensible defaults",
+            "ClaudeProvider and OpenCodeProvider override get_spawn_info()",
+            "All unit tests pass"
+          ]
+        },
+        {
+          "id": "phase-5",
+          "name": "Integration Testing & Verification",
+          "description": "End-to-end testing with real CLI providers to verify the full workflow: discovery -> invoke -> verify response.",
+          "order": 5,
+          "dependencies": ["phase-2", "phase-3", "phase-4"],
+          "tasks": [
+            {
+              "name": "Integration test: list_providers with real Claude",
+              "description": "Test that list_providers returns claude with opus/sonnet/haiku models when Claude CLI is installed.",
+              "files": ["vista/tests/test_providers_integration.py"]
+            },
+            {
+              "name": "Integration test: invoke_provider with real Claude",
+              "description": "Test invoke_provider('claude', 'haiku', 'Say hello in one word') returns non-empty response.",
+              "files": ["vista/tests/test_providers_integration.py"]
+            },
+            {
+              "name": "Integration test: discovery -> invoke workflow",
+              "description": "Call list_providers, pick first provider and model, call invoke_provider with a simple prompt, verify response.",
+              "files": ["vista/tests/test_providers_integration.py"]
+            },
+            {
+              "name": "Verify coexistence with teams and ralph tools",
+              "description": "Enable all three tool groups simultaneously, verify all tools register without conflicts, verify each group works independently.",
+              "files": ["vista/tests/test_providers_integration.py"]
+            }
+          ],
+          "acceptanceCriteria": [
+            "list_providers returns real provider data with installed CLIs",
+            "invoke_provider returns real responses from Claude CLI",
+            "All three tool groups coexist without naming conflicts",
+            "Full discovery -> invoke workflow works end-to-end"
+          ]
+        }
+      ]
+    }
+  }
+}

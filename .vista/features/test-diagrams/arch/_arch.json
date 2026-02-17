@@ -1,0 +1,61 @@
+{
+  "feature": "test-diagrams",
+  "diagrams": [
+    {
+      "name": "System Overview (Mermaid)",
+      "file": "system-overview.mmd",
+      "type": "mermaid",
+      "diagramType": "flowchart",
+      "category": "architecture",
+      "description": "High-level system components rendered with Mermaid"
+    },
+    {
+      "name": "Data Model (Mermaid ER)",
+      "file": "data-model.mmd",
+      "type": "mermaid",
+      "diagramType": "er",
+      "category": "architecture",
+      "description": "Entity-relationship diagram rendered with Mermaid"
+    },
+    {
+      "name": "Auth Sequence (PlantUML)",
+      "file": "auth-sequence.puml",
+      "type": "plantuml",
+      "diagramType": "sequence",
+      "category": "architecture",
+      "description": "Authentication flow rendered via PlantUML server"
+    },
+    {
+      "name": "Deploy Pipeline (D2)",
+      "file": "deploy-pipeline.d2",
+      "type": "d2",
+      "diagramType": "flowchart",
+      "category": "architecture",
+      "description": "Deployment pipeline rendered with D2"
+    },
+    {
+      "name": "Module Dependencies (Graphviz)",
+      "file": "module-deps.dot",
+      "type": "graphviz",
+      "diagramType": "dependency",
+      "category": "architecture",
+      "description": "Module dependency graph rendered with Graphviz/Viz.js"
+    },
+    {
+      "name": "Design Rationale (Markdown)",
+      "file": "design-rationale.md",
+      "type": "markdown",
+      "diagramType": "doc",
+      "category": "architecture",
+      "description": "Architecture decision record rendered as markdown"
+    },
+    {
+      "name": "Network Topology (Draw.io)",
+      "file": "network-topology.drawio",
+      "type": "drawio",
+      "diagramType": "flowchart",
+      "category": "architecture",
+      "description": "Network diagram rendered with Draw.io viewer"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+---
+Iteration: 1
+Time: 2026-02-13
+
+WHAT WAS DONE:
+- vista/server/services/progress_service.py: Added read_domain_requirements() static method after read_arch_manifest() — reads domain-requirements.md for a feature, returns raw markdown or None
+- vista/server/services/export_service.py: Created ExportService with get_exportable_features() and generate_export_html() methods — scans features for diagrams/requirements, builds JSON data blob, renders standalone HTML via Jinja2
+- vista/server/routes/export.py: Created export routes — GET /api/projects/{id}/export/features (returns feature tree JSON) and POST /api/projects/{id}/export (generates and returns HTML file as attachment)
+- vista/server/app.py: Registered export router (app.include_router(export.router))
+- vista/server/views/export.html: Created self-contained standalone HTML export template — dark theme matching architecture.html, Mermaid diagram rendering via CDN, marked.js for requirements, pan/zoom controls, modal expand, feature navigation, all data embedded as JSON via |tojson filter
+- vista/server/views/project.html: Added "Export Docs" button next to "Remove Project", added export modal with tree-style checklist (feature parent checkboxes, diagram child checkboxes, indeterminate state, select/deselect all), added JS for modal open/close, feature loading, tree rendering, and export download via blob URL
+- vista/tests/test_export_service.py: Created 16 unit tests covering ProgressService.read_domain_requirements, ExportService.get_exportable_features, ExportService.generate_export_html, and export routes (GET/POST/404)
+
+WHAT WAS NOT DONE:
+- All 6 plan steps were completed in this iteration
+
+Tests: 16 passing, 0 failing — tests/test_export_service.py
+Existing tests: 31 passing, 1 failing (pre-existing failure in test_ralph_service.py unrelated to export feature)
+
+ALL PHASES COMPLETE
+---

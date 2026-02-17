@@ -1,0 +1,21 @@
+{
+  "feature": "share-docs",
+  "diagrams": [
+    {
+      "name": "Export Data Flow",
+      "file": "export-data-flow.mmd",
+      "type": "mermaid",
+      "diagramType": "flowchart",
+      "category": "architecture",
+      "description": "End-to-end data flow from UI button through service layer to self-contained HTML output"
+    },
+    {
+      "name": "Export Sequence",
+      "file": "export-sequence.mmd",
+      "type": "mermaid",
+      "diagramType": "sequence",
+      "category": "architecture",
+      "description": "Request/response sequence for feature tree loading and HTML export generation"
+    }
+  ]
+}

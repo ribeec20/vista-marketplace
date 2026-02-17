@@ -1,0 +1,32 @@
+{
+  "id": "000368d3",
+  "project_id": "3686f5f3",
+  "feature_name": "diagram_representations",
+  "name": "hi",
+  "provider": "claude",
+  "model": "opus",
+  "messages": [
+    {
+      "role": "user",
+      "content": "hi",
+      "timestamp": "2026-02-11T00:34:09.077269+00:00"
+    },
+    {
+      "role": "assistant",
+      "content": "Hi! How can I help you today? I can work with the architecture diagrams, the Vista codebase, or anything else you need.",
+      "timestamp": "2026-02-11T00:34:29.445021+00:00"
+    },
+    {
+      "role": "user",
+      "content": "explain this",
+      "timestamp": "2026-02-11T00:34:38.048798+00:00"
+    },
+    {
+      "role": "assistant",
+      "content": "This is the **system architecture diagram** for Vista's diagram representation feature. Here's what it shows:\n\n## Three Main Layers\n\n### 1. Browser Client\n- **Architecture Page** - The main UI that displays diagrams\n- **Diagram Renderers** - Handles rendering different diagram formats\n- **Chat Panel UI** - An AI chat interface for discussing/editing diagrams\n- **mermaid.js** - Renders `.mmd` (Mermaid) diagrams\n- **Draw.io Viewer** - Renders `.drawio` diagrams\n\n### 2. FastAPI Server\n- **Architecture Routes** - Serves diagram files and manifest data\n- **Chat Routes** - Handles AI chat requests\n- **Provider Routes** - Lists available AI CLI providers and their models\n- **Services** - Business logic layer (ArchitectureService, ChatService, ProviderService)\n\n### 3. File System (Storage)\n- **`arch/` directory** - Where diagram files live (the ones in `.vista/features/diagram_representations/arch/`)\n- **`_arch.json` manifest** - Metadata describing the diagrams (titles, descriptions, order)\n- **`.mmd` and `.drawio` files** - The actual diagram source files\n\n## Data Flow\n\n1. The **Architecture Page** fetches the manifest and diagram files from the server via REST API\n2. The **Chat Panel** sends messages to the Chat Routes, which use the **ProviderService** to find available CLI tools (Claude CLI or OpenCode CLI) and invokes them as subprocesses\n3. The **Diagram Renderers** take the raw diagram content and render it client-side using mermaid.js or the Draw.io viewer\n4. The **ArchitectureService** reads from the file system, validating paths stay within the `arch/` directory (security)\n\n## Key Design Decisions\n- **CLI-based AI providers** - Chat uses subprocess calls to CLI tools rather than direct API calls, avoiding the need for API keys in Vista itself\n- **File-based storage** - Diagrams are plain files on disk, not in a database\n- **Client-side rendering** - Diagram rendering happens in the browser, the server just serves raw file content",
+      "timestamp": "2026-02-11T00:35:00.024179+00:00"
+    }
+  ],
+  "created_at": "2026-02-11T00:34:05.228287+00:00",
+  "updated_at": "2026-02-11T00:35:00.024186+00:00"
+}

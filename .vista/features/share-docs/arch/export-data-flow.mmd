@@ -1,0 +1,59 @@
+flowchart TD
+    subgraph UI["Project Page (project.html)"]
+        BTN["Export Docs Button"]
+        MODAL["Export Modal"]
+        TREE["Feature Tree Checklist"]
+        DL["Download Button"]
+    end
+
+    subgraph API["FastAPI Routes (export.py)"]
+        GET_FEAT["GET /export/features"]
+        POST_EXP["POST /export"]
+    end
+
+    subgraph Service["ExportService"]
+        SCAN["get_exportable_features()"]
+        GEN["generate_export_html()"]
+    end
+
+    subgraph ProgressService
+        READ_MANIFEST["read_arch_manifest()"]
+        READ_REQ["read_domain_requirements()"]
+        READ_FILE["read_arch_file()"]
+    end
+
+    subgraph FileSystem[".vista/features/"]
+        ARCH_JSON["_arch.json"]
+        MMD_FILES[".mmd diagram files"]
+        DOMAIN_MD["domain-requirements.md"]
+    end
+
+    subgraph Template["Jinja2 Template"]
+        EXPORT_HTML["export.html"]
+    end
+
+    subgraph Output["Self-Contained HTML"]
+        CDN["Tailwind + Mermaid @11 + Marked @15"]
+        JSON_BLOB["Embedded JSON data"]
+        RENDER["Client-side rendering"]
+    end
+
+    BTN -->|click| MODAL
+    MODAL -->|fetch| GET_FEAT
+    GET_FEAT --> SCAN
+    SCAN --> READ_MANIFEST
+    SCAN --> READ_REQ
+    READ_MANIFEST --> ARCH_JSON
+    READ_REQ --> DOMAIN_MD
+
+    TREE -->|user selects| DL
+    DL -->|POST| POST_EXP
+    POST_EXP --> GEN
+    GEN --> READ_MANIFEST
+    GEN --> READ_REQ
+    GEN --> READ_FILE
+    READ_FILE --> MMD_FILES
+    GEN --> EXPORT_HTML
+    EXPORT_HTML --> Output
+    CDN --> RENDER
+    JSON_BLOB --> RENDER

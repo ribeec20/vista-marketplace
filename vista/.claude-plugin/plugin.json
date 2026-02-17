@@ -1,0 +1,7 @@
+{
+  "name": "vista",
+  "version": "1.7.0",
+  "description": "Visual feature planning with review gate between specs and implementation",
+  "author": { "name": "Grove" },
+  "keywords": ["planning", "visualization", "review", "feature", "jtbd"]
+}

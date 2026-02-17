@@ -1,0 +1,45 @@
+{
+  "feature": "share_docs",
+  "diagrams": [
+    {
+      "name": "System Architecture",
+      "file": "system-architecture.mmd",
+      "type": "mermaid",
+      "diagramType": "flowchart",
+      "category": "architecture",
+      "description": "High-level system components: dashboard UI, FastAPI backend, file system data sources, HTML generator, and CDN dependencies"
+    },
+    {
+      "name": "User Flow",
+      "file": "user-flow.mmd",
+      "type": "mermaid",
+      "diagramType": "flowchart",
+      "category": "architecture",
+      "description": "Step-by-step user journey from clicking Export to viewing the downloaded HTML file"
+    },
+    {
+      "name": "Export Sequence",
+      "file": "sequence-export.mmd",
+      "type": "mermaid",
+      "diagramType": "sequence",
+      "category": "architecture",
+      "description": "Interaction sequence between the export modal, FastAPI endpoint, HTML generator, and file system"
+    },
+    {
+      "name": "Data Model",
+      "file": "data-model.mmd",
+      "type": "mermaid",
+      "diagramType": "er",
+      "category": "architecture",
+      "description": "Entity relationships: projects, features, diagrams, requirements, and export requests"
+    },
+    {
+      "name": "Export Modal States",
+      "file": "state-export-modal.mmd",
+      "type": "mermaid",
+      "diagramType": "state",
+      "category": "architecture",
+      "description": "State transitions for the export modal: closed, loading, tree-ready (with selection sub-states), generating, downloading, and error"
+    }
+  ]
+}
