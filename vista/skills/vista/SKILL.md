@@ -52,3 +52,5 @@ Report to the user:
   - `/vista:specs <feature-name>` — Generate topic specifications from planning artifacts
   - `/vista:add <feature-name>` — Expand an existing feature with new requirements
   - `/vista:legacy <feature-name>` — Reverse-engineer an existing codebase into Vista planning artifacts
+  - `/vista:test <feature-name>` — Generate and run tests based on specs and TDD diagrams
+  - `/vista:explain <feature-name>` — Explain a feature's architecture, requirements, and implementation
