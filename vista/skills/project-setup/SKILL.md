@@ -1,6 +1,7 @@
 ---
 name: project-setup
 description: Initialize Claude Code project management system. Creates .claude/skills/project/ with project-specific context skill, .claude/features/_planning/ for feature planning, and CLAUDE.md entry point. Use when setting up a new project for Claude Code workflows.
+disable-model-invocation: true
 ---
 
 # Project Setup
@@ -37,7 +38,7 @@ If `.claude/skills/project/SKILL.md` or `CLAUDE.md` exists, ask: Skip | Backup &
 ```bash
 mkdir -p .claude/skills/project
 mkdir -p .claude/features/_planning
-mkdir -p .vista/features
+mkdir -p docs
 mkdir -p .vista/ralph
 ```
 

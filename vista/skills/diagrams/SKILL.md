@@ -265,7 +265,7 @@ Complete syntax references and examples for all supported formats:
 
 ## Vista Architecture Manifest
 
-When adding diagram files to `.vista/features/<name>/arch/`, the `_arch.json` manifest tracks them. Use the correct `type` and `diagramType` values:
+When adding diagram files to `docs/<name>/arch/`, the `_arch.json` manifest tracks them. Use the correct `type` and `diagramType` values:
 
 | File Extension | `type` Value | `diagramType` Value |
 |---------------|-------------|-------------------|

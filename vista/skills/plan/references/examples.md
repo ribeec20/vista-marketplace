@@ -17,7 +17,7 @@ Complete examples of the `/vista:plan` 3-step workflow.
 ```
 $ python vista/scripts/setup-feature.py --name notification-system
 
-Created .vista/features/notification-system/
+Created docs/notification-system/
   ├── arch/_arch.json
   ├── specs/
   ├── domain-requirements.md

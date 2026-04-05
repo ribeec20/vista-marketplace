@@ -1,6 +1,7 @@
 ---
 name: vista
 description: Open the Vista dashboard and register a project. Use when starting the planning UI or opening the web dashboard.
+disable-model-invocation: true
 ---
 
 # Vista — Dashboard
@@ -52,3 +53,5 @@ Report to the user:
   - `/vista:specs <feature-name>` — Generate topic specifications from planning artifacts
   - `/vista:add <feature-name>` — Expand an existing feature with new requirements
   - `/vista:legacy <feature-name>` — Reverse-engineer an existing codebase into Vista planning artifacts
+  - `/vista:test <feature-name>` — Generate and run tests based on specs and TDD diagrams
+  - `/vista:explain <feature-name>` — Explain a feature's architecture, requirements, and implementation

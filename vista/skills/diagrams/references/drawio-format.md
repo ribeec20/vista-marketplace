@@ -500,7 +500,7 @@ In `_arch.json`:
 ### File Organization
 
 ```
-.vista/features/<feature>/arch/
+docs/<feature>/arch/
 ├── _arch.json
 ├── overview.mmd                (Mermaid for code-gen diagrams)
 ├── aws-architecture.drawio     (Draw.io for visual diagrams)

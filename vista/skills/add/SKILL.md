@@ -17,7 +17,7 @@ Expand an existing feature with new requirements and updated architecture diagra
 
 ## Prerequisites
 
-- `.vista/features/<name>/` must exist with:
+- `docs/<name>/` must exist with:
   - `domain-requirements.md` — Existing domain requirements (run `/vista:plan` first)
   - `arch/` — Architecture diagrams directory with `_arch.json` manifest
 
@@ -27,10 +27,10 @@ Expand an existing feature with new requirements and updated architecture diagra
 
 Read and summarize the current feature state:
 
-1. Read `.vista/features/<name>/domain-requirements.md` — show key JTBD and requirements summary
+1. Read `docs/<name>/domain-requirements.md` — show key JTBD and requirements summary
 2. Read `arch/_arch.json` — list all existing diagrams (architecture and TDD)
 3. Read all diagram files in `arch/` (`.mmd`, `.puml`, `.d2`, `.excalidraw`, `.txt`) — understand current architecture
-4. List existing specs in `.vista/features/<name>/specs/`
+4. List existing specs in `docs/<name>/specs/`
 5. Present a concise summary to the user of what exists
 
 ### Step 2: Gather New Requirements

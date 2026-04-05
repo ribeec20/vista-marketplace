@@ -534,7 +534,7 @@ In `_arch.json`:
 ### File Organization
 
 ```
-.vista/features/<feature>/arch/
+docs/<feature>/arch/
 ├── _arch.json
 ├── overview.mmd          (Mermaid for simple diagrams)
 ├── architecture.d2       (D2 for architecture overview)

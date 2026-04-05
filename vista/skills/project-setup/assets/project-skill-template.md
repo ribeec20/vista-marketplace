@@ -49,7 +49,7 @@ description: {PROJECT_NAME} project context. MANDATORY - invoke /project at sess
 
 - Requirements use IDs: `{PREFIX}-F1`, `{PREFIX}-NF1`, `{PREFIX}-BR1`
 - Prefix derived from feature name (first letter of each word, e.g., `user-auth` -> `UA`)
-- Update specs via `/vista:spec-update <feature> [topic]` -- adds changelog entry + traceable commit
+- Update specs via `/vista:specs <feature>` -- adds changelog entry + traceable commit
 - Commit prefix: `spec(feature/topic): description`
 - Code traceability: `# Implements {ID}: description`
 
