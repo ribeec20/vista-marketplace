@@ -12,7 +12,7 @@ Provide a clear, concise explanation of the given topic.
 ## Rules
 
 - Keep explanations simple and jargon-free
-- Include a Mermaid diagram when it helps illustrate relationships, flows, or architecture
+- Include simple ASCII/text diagrams in chat when they help illustrate relationships, flows, or architecture
 - Prefer visual over verbose — a good diagram replaces paragraphs of text
 - Use **AskUserQuestion** if the topic is ambiguous
 - Tailor depth to what the user actually needs, not an exhaustive deep-dive
