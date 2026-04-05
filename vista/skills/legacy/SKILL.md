@@ -36,7 +36,7 @@ If the directory already exists, proceed. Existing files won't be overwritten.
 
 ### Step 2: Scan Existing Artifacts and Detect Mode
 
-Check `.vista/features/<name>/` for pre-existing documentation:
+Check `docs/<name>/` for pre-existing documentation:
 
 - `domain-requirements.md` — Domain requirements (may be template-only)
 - `arch/_arch.json` — Architecture manifest (may be empty)
@@ -273,7 +273,7 @@ Tell the user:
 
 After legacy import (either path):
 ```
-.vista/features/<name>/
+docs/<name>/
 ├── arch/
 │   ├── _arch.json              # Diagram manifest
 │   ├── system-architecture.mmd # Components and relationships

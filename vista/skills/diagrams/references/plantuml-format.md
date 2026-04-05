@@ -983,7 +983,7 @@ In `_arch.json`:
 
 Place PlantUML files in the architecture directory:
 ```
-.vista/features/<feature>/arch/
+docs/<feature>/arch/
 ├── _arch.json
 ├── overview.mmd          (Mermaid for simple diagrams)
 ├── deployment.puml       (PlantUML for deployment)

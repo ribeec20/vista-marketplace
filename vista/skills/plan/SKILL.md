@@ -31,7 +31,7 @@ Plan a new feature through deep interactive questioning, producing domain requir
 python vista/scripts/setup-feature.py --name $ARGUMENTS
 ```
 
-This creates `.vista/features/<name>/` with:
+This creates `docs/<name>/` with:
 - `domain-requirements.md` — Domain requirements template
 - `specs/` — Specification documents directory (populated later by `/vista:specs`)
 - `arch/` — Architecture diagrams directory with empty `_arch.json` manifest
@@ -102,7 +102,7 @@ Work through these areas interactively:
 - What feedback mechanisms are needed? (loading states, confirmations, errors)
 - What error scenarios need handling?
 
-**Write answers incrementally** to `.vista/features/<name>/domain-requirements.md` as each area is discussed. Don't wait until the end.
+**Write answers incrementally** to `docs/<name>/domain-requirements.md` as each area is discussed. Don't wait until the end.
 
 #### 2h. Flag TDD Candidates
 
@@ -259,9 +259,9 @@ Tell the user:
 
 ## Output Files
 
-After completion, `.vista/features/<name>/` contains:
+After completion, `docs/<name>/` contains:
 ```
-.vista/features/<name>/
+docs/<name>/
 ├── arch/
 │   ├── _arch.json              # Diagram manifest (auto-updated by DiagramWatcher)
 │   ├── system-architecture.mmd # System components overview

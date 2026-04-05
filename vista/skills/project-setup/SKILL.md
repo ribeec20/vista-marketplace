@@ -38,7 +38,7 @@ If `.claude/skills/project/SKILL.md` or `CLAUDE.md` exists, ask: Skip | Backup &
 ```bash
 mkdir -p .claude/skills/project
 mkdir -p .claude/features/_planning
-mkdir -p .vista/features
+mkdir -p docs
 mkdir -p .vista/ralph
 ```
 
