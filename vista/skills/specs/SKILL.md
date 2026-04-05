@@ -1,6 +1,6 @@
 ---
 name: specs
-description: Generate topic-based specifications from domain requirements and architecture diagrams.
+description: Generate or update topic-based specifications from domain requirements and architecture diagrams. Also handles spec updates with tracked changes, requirement IDs, and changelog entries.
 disable-model-invocation: true
 argument-hint: <feature-name>
 ---
@@ -100,7 +100,7 @@ Assign sequential IDs to every requirement:
 
 Format each requirement line as: `1. **{PREFIX}-F1:** Requirement text`
 
-See `vista/skills/spec-update/references/conventions.md` for full ID format details.
+See `vista/skills/specs/references/conventions.md` for full ID format details.
 
 #### Standard sections (always present)
 - **Overview** — One sentence without "and"
@@ -184,7 +184,7 @@ Tell the user:
 3. **Source of truth:** Specs + arch diagrams are now the authoritative implementation reference
 4. **Next steps:**
    - Review specs for accuracy and completeness
-   - Use `/vista:spec-update <feature> [topic]` to modify specs with proper change tracking
+   - Re-run `/vista:specs <feature>` to update existing specs with tracked changes
    - Start Ralph loops for implementation:
      - Plan mode first: builds IMPLEMENTATION_PLAN.md from specs
      - Build mode: implements code from the plan
@@ -201,9 +201,35 @@ specs/
 └── notification-system.md    # Topic specification
 ```
 
+## Updating Existing Specs
+
+When specs already exist, this skill also handles updates with change tracking.
+
+### Detect Existing Specs
+
+If `specs/*.md` files already exist when invoked, ask the user via **AskUserQuestion**:
+- **Generate new** — "Regenerate all specs from scratch"
+- **Update existing** — "Update specific specs with tracked changes"
+
+### Update Workflow
+
+1. List available spec files and ask which to update
+2. Ask: what type of change? (Add / Update / Deprecate requirement)
+3. Ask: describe the change and why
+4. Apply changes with proper requirement IDs, changelog entries, and requirement index updates
+5. Commit with prefix: `spec(<feature>/<topic>): <description with IDs>`
+
+**Reference**: `vista/skills/specs/references/conventions.md` for requirement ID format, changelog tables, commit prefixes, and deprecation rules.
+
+Key rules:
+- Never delete a requirement — mark deprecated with `[DEPRECATED]` and note replacement
+- Never reuse a requirement ID
+- Newest changelog entries at top
+
 ## References
 
 Reference documents in `vista/skills/specs/references/`:
 - `spec-template.md` — Template for topic specifications (with Related Diagrams and Testing Strategy sections)
 - `test-planning.md` — Guide for planning test cases during spec generation
 - `acceptance-criteria-format.md` — Format guide for acceptance criteria
+- `conventions.md` — Requirement ID format, changelog tables, commit prefixes, code traceability

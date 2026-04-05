@@ -1,6 +1,7 @@
 ---
 name: vista
 description: Open the Vista dashboard and register a project. Use when starting the planning UI or opening the web dashboard.
+disable-model-invocation: true
 ---
 
 # Vista — Dashboard
